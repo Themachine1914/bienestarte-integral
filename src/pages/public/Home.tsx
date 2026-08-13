@@ -4,44 +4,42 @@ import { ArrowRight, HeartHandshake, Video } from 'lucide-react'
 export function HomePage() {
   return (
     <div>
-      {/* Hero — full-bleed, brand first */}
-      <section className="relative min-h-[92vh] overflow-hidden">
+      {/* Hero: stacked on every breakpoint — photo, then copy */}
+      <section className="bg-cream-50">
         <img
           src="/brand/orlandia-hero.jpg"
           alt="Orlandia Ortiz Almonte"
-          className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
+          className="block h-[46vh] min-h-[280px] w-full object-cover object-[42%_8%] md:h-[68vh] md:min-h-[520px]"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-cream-50/95 via-cream-50/80 to-cream-50/20 sm:via-cream-50/70" />
-        <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col justify-center px-4 py-20 sm:px-6">
-          <div className="max-w-xl">
-            <img
-              src="/brand/logo-horizontal.jpg"
-              alt="Bienestarte Integral"
-              className="fade-up mb-8 h-16 w-auto object-contain sm:h-20"
-            />
-            <h1 className="fade-up-delay font-display text-4xl leading-[1.1] text-ink sm:text-5xl lg:text-6xl text-balance">
-              Un espacio seguro para sanar, comprender y crecer
-            </h1>
-            <p className="fade-up-delay-2 mt-5 max-w-md text-base text-muted sm:text-lg">
-              Psicoterapia clínica y familiar con enfoque en trauma, apego y
-              bienestar integral. Sesiones virtuales, con calidez y rigor
-              profesional.
-            </p>
-            <div className="fade-up-delay-2 mt-8 flex flex-wrap gap-3">
-              <Link
-                to="/agendar"
-                className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sage-600"
-              >
-                Agendar cita
-                <ArrowRight size={16} />
-              </Link>
-              <Link
-                to="/sobre-mi"
-                className="inline-flex items-center rounded-full border border-sage-300 bg-white/70 px-6 py-3 text-sm font-medium text-sage-700 backdrop-blur hover:bg-white"
-              >
-                Conocer a Orlandia
-              </Link>
-            </div>
+
+        <div className="mx-auto max-w-xl px-4 py-12 sm:px-6 md:max-w-2xl md:py-16">
+          <img
+            src="/brand/logo-seal.png"
+            alt="Bienestarte Integral"
+            className="fade-up mb-6 h-[4.25rem] w-[4.25rem] object-contain md:h-20 md:w-20"
+          />
+          <h1 className="fade-up-delay font-display text-4xl leading-[1.1] text-ink sm:text-5xl lg:text-[3.25rem] text-balance">
+            Un espacio seguro para sanar, comprender y crecer
+          </h1>
+          <p className="fade-up-delay-2 mt-5 text-base text-muted sm:text-lg">
+            Psicoterapia clínica y familiar con enfoque en trauma, apego y
+            bienestar integral. Sesiones virtuales, con calidez y rigor
+            profesional.
+          </p>
+          <div className="fade-up-delay-2 mt-8 flex flex-wrap gap-3">
+            <Link
+              to="/agendar"
+              className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sage-600"
+            >
+              Agendar cita
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              to="/sobre-mi"
+              className="inline-flex items-center rounded-full border border-sage-300 bg-white px-6 py-3 text-sm font-medium text-sage-700 hover:bg-cream-100"
+            >
+              Conocer a Orlandia
+            </Link>
           </div>
         </div>
       </section>
@@ -52,21 +50,21 @@ export function HomePage() {
             {
               icon: Video,
               title: '100% virtual',
-              text: 'Atiende desde donde te sientas más cómoda o cómodo, con confidencialidad.',
+              text: 'Te acompaño en línea, desde el lugar donde te sientas más en calma. Con discreción y cercanía.',
             },
             {
               icon: HeartHandshake,
-              title: 'Enfoque integral',
-              text: 'Trauma, apego, familia y salud mental con formación especializada.',
+              title: 'Una mirada completa',
+              text: 'No se trata solo de un malestar. Trabajamos juntas lo que sientes, tus vínculos y tu bienestar.',
             },
             {
               icon: ArrowRight,
-              title: 'Proceso claro',
-              text: 'Agenda, paga por transferencia y recibe confirmación personal.',
+              title: 'Proceso sencillo',
+              text: 'Eliges el horario, pagas por transferencia y te confirmo yo misma tu cita.',
             },
           ].map((item) => (
-            <div key={item.title} className="text-center md:text-left">
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-sage-100 text-sage-600 md:mx-0">
+            <div key={item.title} className="text-center">
+              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-sage-100 text-sage-600">
                 <item.icon size={20} />
               </div>
               <h2 className="font-display text-2xl text-ink">{item.title}</h2>
@@ -110,8 +108,8 @@ export function HomePage() {
           Da el primer paso hacia tu bienestar
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-sage-100">
-          Citas virtuales de lunes a viernes. Confirmación manual tras revisar
-          tu comprobante de pago.
+          Citas virtuales lunes, martes y miércoles. Confirmación manual tras
+          revisar tu comprobante de pago.
         </p>
         <Link
           to="/agendar"

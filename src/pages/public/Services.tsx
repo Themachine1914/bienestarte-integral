@@ -63,7 +63,7 @@ export function ServicesPage() {
           <ol className="mx-auto mt-6 grid max-w-3xl gap-4 text-left text-sm text-muted sm:grid-cols-3">
             <li>
               <span className="font-semibold text-sage-600">01.</span> Eliges
-              fecha y hora (lun–vie).
+              fecha y hora (lunes a miércoles).
             </li>
             <li>
               <span className="font-semibold text-sage-600">02.</span> Realizas

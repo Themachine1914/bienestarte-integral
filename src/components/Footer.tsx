@@ -7,9 +7,9 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
         <div>
           <img
-            src="/brand/logo-horizontal.jpg"
+            src="/brand/logo-seal.png"
             alt="Bienestarte Integral"
-            className="mb-4 h-14 w-auto rounded-lg bg-white p-1.5 object-contain"
+            className="mb-4 h-16 w-16 object-contain"
           />
           <p className="font-display text-2xl text-white">Bienestarte Integral</p>
           <p className="mt-2 text-sm text-sage-200">
@@ -66,7 +66,7 @@ export function Footer() {
             @bienestarteintegral
           </a>
           <p className="mt-6 text-xs text-sage-300">
-            Sesiones virtuales · Lunes a viernes
+            Sesiones virtuales · Lunes, martes y miércoles
           </p>
         </div>
       </div>

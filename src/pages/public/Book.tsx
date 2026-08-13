@@ -145,7 +145,7 @@ export function BookPage() {
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
       <h1 className="font-display text-4xl text-ink">Agendar cita</h1>
       <p className="mt-2 text-sm text-muted">
-        Sesiones virtuales · Lunes a viernes · 6 cupos diarios
+        Sesiones virtuales · Lunes, martes y miércoles · 6 cupos diarios
       </p>
 
       <div className="mt-8 flex gap-1">

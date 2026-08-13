@@ -22,15 +22,15 @@ export function Navbar() {
           onClick={() => setOpen(false)}
         >
           <img
-            src="/brand/logo-seal.jpg"
+            src="/brand/logo-seal.png"
             alt="Bienestarte Integral"
-            className="h-11 w-11 rounded-full object-cover"
+            className="h-11 w-11 object-contain"
           />
-          <div className="leading-tight hidden sm:block">
-            <p className="font-display text-xl text-sage-600 tracking-wide">
+          <div className="leading-tight">
+            <p className="font-display text-lg sm:text-xl text-sage-600 tracking-wide">
               BIENESTARTE <span className="italic text-ink">Integral</span>
             </p>
-            <p className="text-[11px] text-muted">Psicoterapia · Salud Mental</p>
+            <p className="text-[11px] text-muted hidden sm:block">Psicoterapia · Salud Mental</p>
           </div>
         </Link>
 

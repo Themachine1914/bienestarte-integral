@@ -65,8 +65,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     'Para confirmar tu sesión envía: nombre del paciente, fecha y hora de la cita, y el comprobante de transferencia o depósito.',
 }
 
+/** Practice only books Monday–Wednesday (1–3). */
+export const PRACTICE_WEEKDAYS = [1, 2, 3]
+
 export const DEFAULT_AVAILABILITY: AvailabilityConfig = {
-  activeDays: [1, 2, 3, 4, 5], // Mon–Fri
+  activeDays: [...PRACTICE_WEEKDAYS],
   slots: ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00'],
   sessionDurationMinutes: 50,
 }

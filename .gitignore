@@ -27,3 +27,4 @@ Datos del cliente/
 *.njsproj
 *.sln
 *.sw?
+.vercel

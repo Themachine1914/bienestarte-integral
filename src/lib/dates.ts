@@ -8,8 +8,9 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { AvailabilityConfig } from '../types'
+import { PRACTICE_WEEKDAYS } from './defaults'
 
-/** date-fns: Sunday=0 … Saturday=6. Our config uses Monday=1 … Friday=5. */
+/** date-fns: Sunday=0 … Saturday=6. Our config uses Monday=1 … Sunday=7. */
 export function toConfigWeekday(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay
 }
@@ -19,7 +20,9 @@ export function isActiveWeekday(
   availability: AvailabilityConfig,
 ): boolean {
   const day = toConfigWeekday(getDay(date))
-  return availability.activeDays.includes(day)
+  return (
+    PRACTICE_WEEKDAYS.includes(day) && availability.activeDays.includes(day)
+  )
 }
 
 export function formatDisplayDate(isoDate: string): string {

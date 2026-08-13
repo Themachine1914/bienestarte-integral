@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { DEFAULT_AVAILABILITY } from '../../lib/defaults'
+import { DEFAULT_AVAILABILITY, PRACTICE_WEEKDAYS } from '../../lib/defaults'
 import {
   getAvailability,
   saveAvailability,
@@ -32,6 +32,7 @@ export function AvailabilityPage() {
   }, [])
 
   function toggleDay(day: number) {
+    if (!PRACTICE_WEEKDAYS.includes(day)) return
     setConfig((c) => ({
       ...c,
       activeDays: c.activeDays.includes(day)
@@ -57,7 +58,13 @@ export function AvailabilityPage() {
       return
     }
 
-    const next = { ...config, slots }
+    const next = {
+      ...config,
+      slots,
+      activeDays: config.activeDays.filter((d) =>
+        PRACTICE_WEEKDAYS.includes(d),
+      ),
+    }
     try {
       await saveAvailability(next)
       setConfig(next)
@@ -73,27 +80,37 @@ export function AvailabilityPage() {
     <div>
       <h1 className="font-display text-3xl text-ink">Disponibilidad</h1>
       <p className="mt-1 text-sm text-muted">
-        Días activos y horarios (máx. 6 cupos/día)
+        Consulta lunes, martes y miércoles · máx. 6 cupos/día
       </p>
 
       <form onSubmit={handleSave} className="mt-8 max-w-xl space-y-6">
         <div>
           <p className="text-sm font-medium text-ink">Días activos</p>
+          <p className="mt-1 text-xs text-muted">
+            Jueves a domingo no se atienden.
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-              <button
-                key={day}
-                type="button"
-                onClick={() => toggleDay(day)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-                  config.activeDays.includes(day)
-                    ? 'bg-sage-500 text-white'
-                    : 'border border-sage-200 bg-white text-muted'
-                }`}
-              >
-                {DAY_LABELS[day]}
-              </button>
-            ))}
+            {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+              const allowed = PRACTICE_WEEKDAYS.includes(day)
+              const active = allowed && config.activeDays.includes(day)
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleDay(day)}
+                  disabled={!allowed}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                    active
+                      ? 'bg-sage-500 text-white'
+                      : allowed
+                        ? 'border border-sage-200 bg-white text-muted'
+                        : 'cursor-not-allowed border border-sage-100 bg-sage-50 text-sage-300'
+                  }`}
+                >
+                  {DAY_LABELS[day]}
+                </button>
+              )
+            })}
           </div>
         </div>
 
