@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, HeartHandshake, Video } from 'lucide-react'
+import { ArrowRight, HeartHandshake, Users, Video } from 'lucide-react'
 
 export function HomePage() {
   return (
@@ -49,18 +49,18 @@ export function HomePage() {
           {[
             {
               icon: Video,
-              title: '100% virtual',
-              text: 'Te acompaño en línea, desde el lugar donde te sientas más en calma. Con discreción y cercanía.',
+              title: '100 % virtual',
+              text: 'Atención profesional, cercana y confidencial.',
+            },
+            {
+              icon: Users,
+              title: 'Psicoterapia',
+              text: 'Sesiones individuales, de pareja y familia.',
             },
             {
               icon: HeartHandshake,
-              title: 'Una mirada completa',
-              text: 'No se trata solo de un malestar. Trabajamos juntas lo que sientes, tus vínculos y tu bienestar.',
-            },
-            {
-              icon: ArrowRight,
-              title: 'Proceso sencillo',
-              text: 'Eliges el horario, pagas por transferencia y te confirmo yo misma tu cita.',
+              title: 'Atención especializada',
+              text: 'Trauma complejo y rehabilitación en diagnósticos clínicos y psiquiátricos.',
             },
           ].map((item) => (
             <div key={item.title} className="text-center">
