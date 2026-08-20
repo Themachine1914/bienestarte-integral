@@ -8,6 +8,7 @@ import {
   formatCurrencyDop,
   formatDisplayDate,
   getBookableDates,
+  getOpenSlots,
   toDateKey,
 } from '../../lib/dates'
 import { getAvailability } from '../../services/availability'
@@ -19,6 +20,7 @@ import { getSettings } from '../../services/settings'
 import { uploadPaymentProof } from '../../services/upload'
 import type {
   AppSettings,
+  Appointment,
   AvailabilityConfig,
   SessionType,
 } from '../../types'
@@ -46,7 +48,7 @@ export function BookPage() {
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
+  const [confirmed, setConfirmed] = useState<Appointment | null>(null)
 
   useEffect(() => {
     Promise.all([getSettings(), getAvailability()]).then(([s, a]) => {
@@ -57,15 +59,21 @@ export function BookPage() {
 
   useEffect(() => {
     if (!date) return
-    getBookedSlotsForDate(date).then(setBooked)
-  }, [date])
+    let active = true
+    getBookedSlotsForDate(date).then((slots) => {
+      if (active) setBooked(slots)
+    })
+    return () => {
+      active = false
+    }
+  }, [date, step])
 
   const session = settings?.sessionTypes.find((s) => s.id === sessionType)
   const dates = useMemo(
     () => (availability ? getBookableDates(availability) : []),
     [availability],
   )
-  const freeSlots = (availability?.slots ?? []).filter((s) => !booked.includes(s))
+  const freeSlots = availability ? getOpenSlots(date, availability, booked) : []
 
   function next() {
     if (step === 0 && !sessionType) return
@@ -98,7 +106,7 @@ export function BookPage() {
     setSubmitting(true)
     try {
       const proof = await uploadPaymentProof(file)
-      await createAppointment({
+      const created = await createAppointment({
         name,
         phone,
         email,
@@ -111,7 +119,7 @@ export function BookPage() {
         paymentProofName: proof.name,
       })
       toast.success('Cita enviada. Queda pendiente de confirmación.')
-      setDone(true)
+      setConfirmed(created)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo agendar')
     } finally {
@@ -119,7 +127,7 @@ export function BookPage() {
     }
   }
 
-  if (done) {
+  if (confirmed) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center sm:px-6">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-sage-100 text-sage-600">
@@ -127,15 +135,30 @@ export function BookPage() {
         </div>
         <h1 className="font-display text-3xl text-ink">Solicitud recibida</h1>
         <p className="mt-3 text-muted">
-          Tu cita del {formatDisplayDate(date)} a las {time} está{' '}
-          <strong>pendiente de confirmación</strong>. Orlandia revisará tu
-          comprobante y te confirmará.
+          Tu cita del {formatDisplayDate(confirmed.date)} a las{' '}
+          {confirmed.time} está <strong>pendiente de confirmación</strong>.
+          Orlandia revisará tu comprobante y te confirmará.
         </p>
+
+        <div className="mt-8 border border-sage-200 bg-sage-50 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-sage-700">
+            Tu código de seguimiento
+          </p>
+          <p className="mt-2 font-display text-3xl tracking-wide text-ink">
+            {confirmed.reference}
+          </p>
+          <p className="mt-3 text-xs text-muted">
+            Guárdalo. Es lo que necesitas para consultar el estado de tu cita, y
+            solo tú lo tienes.
+          </p>
+        </div>
+
         <Link
           to="/mis-citas"
+          state={{ reference: confirmed.reference }}
           className="mt-8 inline-flex rounded-full bg-sage-500 px-5 py-2.5 text-sm font-semibold text-white"
         >
-          Ver estado de mis citas
+          Ver estado de mi cita
         </Link>
       </div>
     )

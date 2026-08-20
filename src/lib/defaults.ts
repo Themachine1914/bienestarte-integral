@@ -72,7 +72,11 @@ export const DEFAULT_AVAILABILITY: AvailabilityConfig = {
   activeDays: [...PRACTICE_WEEKDAYS],
   slots: ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00'],
   sessionDurationMinutes: 50,
+  blockedDates: [],
 }
+
+/** Hard ceiling on daily slots, matching the "6 cupos diarios" promise. */
+export const MAX_SLOTS_PER_DAY = 6
 
 export const EDUCATION = [
   'Lic. en Psicología Clínica — Universidad Abierta para Adultos (UAPA)',

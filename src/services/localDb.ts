@@ -5,6 +5,7 @@ import type {
   Appointment,
   AvailabilityConfig,
   Patient,
+  SlotLock,
 } from '../types'
 
 const KEYS = {
@@ -12,6 +13,7 @@ const KEYS = {
   availability: 'bi_availability',
   patients: 'bi_patients',
   appointments: 'bi_appointments',
+  slots: 'bi_slots',
   notifications: 'bi_notifications',
   session: 'bi_admin_session',
 } as const
@@ -61,6 +63,13 @@ export const localDb = {
   },
   saveAppointments(appointments: Appointment[]): void {
     write(KEYS.appointments, appointments)
+  },
+
+  getSlots(): SlotLock[] {
+    return read<SlotLock[]>(KEYS.slots, [])
+  },
+  saveSlots(slots: SlotLock[]): void {
+    write(KEYS.slots, slots)
   },
 
   getNotifications(): AppNotification[] {

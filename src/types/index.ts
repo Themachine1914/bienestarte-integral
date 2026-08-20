@@ -43,6 +43,8 @@ export interface AvailabilityConfig {
   activeDays: number[] // 1=Mon … 5=Fri (date-fns: Monday=1)
   slots: string[] // "HH:mm"
   sessionDurationMinutes: number
+  /** Specific yyyy-MM-dd days closed for holidays or vacation. */
+  blockedDates: string[]
 }
 
 export interface Patient {
@@ -57,6 +59,8 @@ export interface Patient {
 
 export interface Appointment {
   id: string
+  /** Unguessable code the patient uses to look up this appointment. */
+  reference: string
   patientId: string
   patientName: string
   patientPhone: string
@@ -76,9 +80,26 @@ export interface Appointment {
 
 export interface AppNotification {
   id: string
-  type: 'appointment_created' | 'appointment_confirmed' | 'appointment_rejected'
+  type:
+    | 'appointment_created'
+    | 'appointment_confirmed'
+    | 'appointment_rejected'
+    | 'appointment_cancelled'
   appointmentId: string
   message: string
   read: boolean
+  createdAt: string
+}
+
+
+/**
+ * One booked slot, stored apart from the appointment so the public booking
+ * page can see which times are taken without reading any patient data.
+ */
+export interface SlotLock {
+  id: string // `${date}_${time}`
+  date: string // yyyy-MM-dd
+  time: string // HH:mm
+  appointmentId: string
   createdAt: string
 }

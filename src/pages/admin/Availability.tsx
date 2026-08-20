@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { DEFAULT_AVAILABILITY, PRACTICE_WEEKDAYS } from '../../lib/defaults'
+import { X } from 'lucide-react'
+import {
+  DEFAULT_AVAILABILITY,
+  MAX_SLOTS_PER_DAY,
+  PRACTICE_WEEKDAYS,
+} from '../../lib/defaults'
+import { formatDisplayDate } from '../../lib/dates'
+import { isValidTimeSlot, normalizeSlots } from '../../lib/time'
 import {
   getAvailability,
   saveAvailability,
@@ -20,6 +27,7 @@ const DAY_LABELS: Record<number, string> = {
 export function AvailabilityPage() {
   const [config, setConfig] = useState<AvailabilityConfig>(DEFAULT_AVAILABILITY)
   const [slotsText, setSlotsText] = useState('')
+  const [newBlockedDate, setNewBlockedDate] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -41,33 +49,50 @@ export function AvailabilityPage() {
     }))
   }
 
+  function addBlockedDate() {
+    if (!newBlockedDate) return
+    setConfig((c) =>
+      c.blockedDates.includes(newBlockedDate)
+        ? c
+        : { ...c, blockedDates: [...c.blockedDates, newBlockedDate].sort() },
+    )
+    setNewBlockedDate('')
+  }
+
+  function removeBlockedDate(date: string) {
+    setConfig((c) => ({
+      ...c,
+      blockedDates: c.blockedDates.filter((d) => d !== date),
+    }))
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    const slots = slotsText
-      .split(/[,\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .filter((s) => /^\d{2}:\d{2}$/.test(s))
 
+    const entries = slotsText.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean)
+    const invalid = entries.filter((s) => !isValidTimeSlot(s))
+    if (invalid.length > 0) {
+      toast.error(
+        `Horario inválido: ${invalid.join(', ')}. Usa HH:mm entre 00:00 y 23:59.`,
+      )
+      return
+    }
+
+    const slots = normalizeSlots(entries)
     if (slots.length === 0) {
       toast.error('Agrega al menos un horario (HH:mm)')
       return
     }
-    if (slots.length > 6) {
-      toast.error('Máximo 6 pacientes por día')
+    if (slots.length > MAX_SLOTS_PER_DAY) {
+      toast.error(`Máximo ${MAX_SLOTS_PER_DAY} pacientes por día`)
       return
     }
 
-    const next = {
-      ...config,
-      slots,
-      activeDays: config.activeDays.filter((d) =>
-        PRACTICE_WEEKDAYS.includes(d),
-      ),
-    }
+    const next: AvailabilityConfig = { ...config, slots }
     try {
       await saveAvailability(next)
       setConfig(next)
+      setSlotsText(slots.join(', '))
       toast.success('Disponibilidad guardada')
     } catch {
       toast.error('No se pudo guardar')
@@ -76,18 +101,21 @@ export function AvailabilityPage() {
 
   if (loading) return <p className="text-muted">Cargando…</p>
 
+  const agendaClosed = config.activeDays.length === 0
+
   return (
     <div>
       <h1 className="font-display text-3xl text-ink">Disponibilidad</h1>
       <p className="mt-1 text-sm text-muted">
-        Consulta lunes, martes y miércoles · máx. 6 cupos/día
+        Consulta lunes, martes y miércoles · máx. {MAX_SLOTS_PER_DAY} cupos/día
       </p>
 
       <form onSubmit={handleSave} className="mt-8 max-w-xl space-y-6">
         <div>
           <p className="text-sm font-medium text-ink">Días activos</p>
           <p className="mt-1 text-xs text-muted">
-            Jueves a domingo no se atienden.
+            Jueves a domingo no se atienden. Puedes desmarcar todos para cerrar
+            la agenda por completo.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {[1, 2, 3, 4, 5, 6, 7].map((day) => {
@@ -112,6 +140,12 @@ export function AvailabilityPage() {
               )
             })}
           </div>
+          {agendaClosed && (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              La agenda está cerrada: nadie podrá reservar hasta que actives al
+              menos un día.
+            </p>
+          )}
         </div>
 
         <label className="block text-sm font-medium text-ink">
@@ -124,12 +158,58 @@ export function AvailabilityPage() {
           />
         </label>
 
+        <div>
+          <p className="text-sm font-medium text-ink">
+            Días bloqueados (feriados, vacaciones)
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Estas fechas no aparecerán aunque caigan en un día activo.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="date"
+              value={newBlockedDate}
+              onChange={(e) => setNewBlockedDate(e.target.value)}
+              className="rounded-lg border border-sage-200 px-3 py-2 text-sm outline-none focus:border-sage-400"
+            />
+            <button
+              type="button"
+              onClick={addBlockedDate}
+              className="rounded-lg border border-sage-200 px-3 py-2 text-sm font-medium text-sage-700 hover:bg-sage-50"
+            >
+              Bloquear
+            </button>
+          </div>
+          {config.blockedDates.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {config.blockedDates.map((d) => (
+                <li
+                  key={d}
+                  className="flex items-center justify-between rounded-lg border border-sage-100 bg-white px-3 py-2 text-sm"
+                >
+                  <span className="capitalize text-ink">
+                    {formatDisplayDate(d)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeBlockedDate(d)}
+                    aria-label={`Quitar ${d}`}
+                    className="text-muted hover:text-red-600"
+                  >
+                    <X size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <label className="block text-sm font-medium text-ink">
           Duración de sesión (minutos)
           <input
             type="number"
-            min={30}
-            max={120}
+            min={15}
+            max={240}
             value={config.sessionDurationMinutes}
             onChange={(e) =>
               setConfig((c) => ({

@@ -15,19 +15,41 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Fully closed. Patient records hold clinical notes, and the public
+    // booking flow no longer touches them — the admin panel links each
+    // appointment to a patient once she signs in.
     match /patients/{id} {
-      allow create: if true;
-      allow read, update: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    match /appointments/{id} {
-      // Public create + read enables booking and "Mis citas" lookup.
-      // Tighten with Cloud Functions / App Check before production scale.
-      allow create: if request.resource.data.keys().hasAll([
-        'patientName', 'patientEmail', 'patientPhone',
-        'date', 'time', 'status', 'paymentProofUrl'
-      ]) && request.resource.data.status == 'pending';
+    // Booked times, holding no patient data at all. The booking page reads
+    // this to grey out taken slots, so it never needs to see an appointment.
+    // The document id is `${date}_${time}`, which makes `create` an atomic
+    // claim: two people submitting the same slot, only the first succeeds.
+    match /slots/{id} {
       allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['date', 'time', 'appointmentId'])
+                    && request.resource.data.date is string
+                    && request.resource.data.time is string
+                    && id == request.resource.data.date + '_' + request.resource.data.time;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{reference} {
+      // `get` but never `list`. The document id is the unguessable code shown
+      // to the patient once, so they can open their own appointment and nobody
+      // can walk the collection. Listing stays with the admin.
+      allow get: if true;
+      allow list: if isAdmin();
+
+      allow create: if request.resource.data.keys().hasAll([
+                         'reference', 'patientName', 'patientEmail', 'patientPhone',
+                         'date', 'time', 'status', 'paymentProofUrl'
+                       ])
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.reference == reference;
+
       allow update, delete: if isAdmin();
     }
 

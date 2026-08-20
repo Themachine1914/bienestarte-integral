@@ -4,42 +4,40 @@ import { ArrowRight, HeartHandshake, Users, Video } from 'lucide-react'
 export function HomePage() {
   return (
     <div>
-      {/* Hero: stacked on every breakpoint — photo, then copy */}
-      <section className="bg-cream-50">
+      <section className="relative overflow-hidden">
         <img
           src="/brand/orlandia-hero.jpg"
           alt="Orlandia Ortiz Almonte"
-          className="block h-[46vh] min-h-[280px] w-full object-cover object-[42%_8%] md:h-[68vh] md:min-h-[520px]"
+          className="absolute inset-0 h-full w-full object-cover object-[38%_14%] md:object-[42%_16%]"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-cream-50/70 via-cream-50/20 to-transparent md:bg-gradient-to-l md:from-cream-50/50 md:via-cream-50/18 md:to-transparent" />
 
-        <div className="mx-auto max-w-xl px-4 py-12 sm:px-6 md:max-w-2xl md:py-16">
-          <img
-            src="/brand/logo-seal.png"
-            alt="Bienestarte Integral"
-            className="fade-up mb-6 h-[4.25rem] w-[4.25rem] object-contain md:h-20 md:w-20"
-          />
-          <h1 className="fade-up-delay font-display text-4xl leading-[1.1] text-ink sm:text-5xl lg:text-[3.25rem] text-balance">
-            Un espacio seguro para sanar, comprender y crecer
-          </h1>
-          <p className="fade-up-delay-2 mt-5 text-base text-muted sm:text-lg">
-            Psicoterapia clínica y familiar con enfoque en trauma, apego y
-            bienestar integral. Sesiones virtuales, con calidez y rigor
-            profesional.
-          </p>
-          <div className="fade-up-delay-2 mt-8 flex flex-wrap gap-3">
-            <Link
-              to="/agendar"
-              className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sage-600"
-            >
-              Agendar cita
-              <ArrowRight size={16} />
-            </Link>
-            <Link
-              to="/sobre-mi"
-              className="inline-flex items-center rounded-full border border-sage-300 bg-white px-6 py-3 text-sm font-medium text-sage-700 hover:bg-cream-100"
-            >
-              Conocer a Orlandia
-            </Link>
+        <div className="relative mx-auto flex min-h-[calc(100svh-4.5rem)] max-w-6xl items-end px-4 pb-10 pt-16 sm:px-6 md:min-h-[calc(100svh-5rem)] md:items-center md:py-20">
+          <div className="max-w-md fade-up md:ml-auto md:max-w-lg">
+            <h1 className="font-display text-[2.15rem] leading-[1.12] text-ink sm:text-5xl lg:text-[3.35rem]">
+              <span className="block">Comprender tu historia.</span>
+              <span className="block">Regular tu presente.</span>
+              <span className="block">Construir bienestar.</span>
+            </h1>
+            <p className="mt-5 max-w-md text-sm leading-relaxed text-ink/80 sm:text-base">
+              Psicoterapia individual, de pareja y familia, con atención
+              especializada en trauma complejo y salud mental.
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Link
+                to="/agendar"
+                className="inline-flex items-center gap-2 rounded-full bg-sage-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sage-600"
+              >
+                Agendar consulta
+                <ArrowRight size={15} />
+              </Link>
+              <Link
+                to="/sobre-mi"
+                className="inline-flex items-center rounded-full border border-sage-600/40 bg-transparent px-5 py-2.5 text-sm font-medium text-sage-700 transition hover:bg-cream-50/50"
+              >
+                Sobre mí
+              </Link>
+            </div>
           </div>
         </div>
       </section>
