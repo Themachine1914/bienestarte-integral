@@ -76,6 +76,13 @@ export interface Appointment {
   paymentProofName?: string
   createdAt: string
   updatedAt: string
+  /**
+   * Times the patient has moved this appointment. Absent on appointments made
+   * before rescheduling existed, which counts as zero.
+   */
+  rescheduleCount?: number
+  /** `${date}_${time}` of every slot this appointment held before, oldest first. */
+  previousSlots?: string[]
 }
 
 export interface AppNotification {
@@ -85,6 +92,7 @@ export interface AppNotification {
     | 'appointment_confirmed'
     | 'appointment_rejected'
     | 'appointment_cancelled'
+    | 'appointment_rescheduled'
   appointmentId: string
   message: string
   read: boolean
@@ -95,11 +103,15 @@ export interface AppNotification {
 /**
  * One booked slot, stored apart from the appointment so the public booking
  * page can see which times are taken without reading any patient data.
+ *
+ * Deliberately holds no link back to its appointment. The collection has to
+ * stay publicly listable (the booking page queries it by date), so anything
+ * stored here is world-readable — and the appointment reference is the
+ * patient's only credential. Do not add an id back.
  */
 export interface SlotLock {
   id: string // `${date}_${time}`
   date: string // yyyy-MM-dd
   time: string // HH:mm
-  appointmentId: string
   createdAt: string
 }

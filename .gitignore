@@ -28,3 +28,9 @@ Datos del cliente/
 *.sln
 *.sw?
 .vercel
+
+# graphify knowledge graph artifacts (regenerable with /graphify)
+graphify-out/
+
+# Claude Code local dev-server config
+.claude/

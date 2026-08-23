@@ -2,16 +2,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDisplayDate } from '../../lib/dates'
 import { listAppointments } from '../../services/appointments'
+import { listNotifications } from '../../services/notifications'
 import { StatusBadge } from '../../components/StatusBadge'
-import type { Appointment } from '../../types'
+import type { AppNotification, Appointment } from '../../types'
 
 export function DashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    listAppointments()
-      .then(setAppointments)
+    Promise.all([listAppointments(), listNotifications()])
+      .then(([a, n]) => {
+        setAppointments(a)
+        setNotifications(n)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -55,6 +60,27 @@ export function DashboardPage() {
           </div>
         ))}
       </div>
+
+      <section className="mt-10">
+        <h2 className="mb-4 font-display text-2xl text-ink">Novedades</h2>
+        {notifications.length === 0 ? (
+          <p className="text-sm text-muted">Sin movimientos recientes.</p>
+        ) : (
+          <ul className="space-y-2">
+            {notifications.slice(0, 8).map((n) => (
+              <li
+                key={n.id}
+                className="border border-sage-100 bg-white px-4 py-3 text-sm"
+              >
+                <span className="text-ink">{n.message}</span>
+                <span className="ml-2 text-xs text-muted">
+                  {formatDisplayDate(n.createdAt.slice(0, 10))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">

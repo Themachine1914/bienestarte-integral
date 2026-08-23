@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { CalendarPlus, Check, Plus, Undo2, X } from 'lucide-react'
+import { CalendarClock, CalendarPlus, Check, Plus, Undo2, X } from 'lucide-react'
 import { formatCurrencyDop, formatDisplayDate } from '../../lib/dates'
 import { downloadIcs } from '../../lib/ics'
 import {
@@ -10,6 +10,8 @@ import {
 } from '../../services/appointments'
 import { StatusBadge } from '../../components/StatusBadge'
 import { NewAppointmentForm } from './NewAppointmentForm'
+import { AppointmentsHelp } from './AppointmentsHelp'
+import { AdminRescheduleForm } from './AdminRescheduleForm'
 import type { Appointment, AppointmentStatus } from '../../types'
 
 const FILTERS: Array<{ id: 'all' | AppointmentStatus; label: string }> = [
@@ -34,6 +36,7 @@ export function AppointmentsPage() {
   const [filter, setFilter] = useState<'all' | AppointmentStatus>('all')
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
+  const [movingId, setMovingId] = useState<string | null>(null)
 
   async function reload() {
     setAppointments(await listAppointments())
@@ -94,6 +97,10 @@ export function AppointmentsPage() {
         >
           <Plus size={16} /> {showNew ? 'Cerrar' : 'Nueva cita'}
         </button>
+      </div>
+
+      <div className="mt-6">
+        <AppointmentsHelp />
       </div>
 
       {showNew && (
@@ -214,6 +221,19 @@ export function AppointmentsPage() {
                   </>
                 )}
 
+                {(a.status === 'pending' || a.status === 'confirmed') && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMovingId((id) => (id === a.id ? null : a.id))
+                    }
+                    className="inline-flex items-center gap-1 rounded-lg border border-sage-200 px-3 py-1.5 text-xs font-medium text-sage-700"
+                  >
+                    <CalendarClock size={14} />{' '}
+                    {movingId === a.id ? 'Cerrar' : 'Reprogramar'}
+                  </button>
+                )}
+
                 {a.status === 'completed' && (
                   <button
                     type="button"
@@ -230,6 +250,17 @@ export function AppointmentsPage() {
                   </p>
                 )}
               </div>
+
+              {movingId === a.id && (
+                <AdminRescheduleForm
+                  appointment={a}
+                  onDone={() => {
+                    setMovingId(null)
+                    reload()
+                  }}
+                  onCancel={() => setMovingId(null)}
+                />
+              )}
             </article>
           ))
         )}

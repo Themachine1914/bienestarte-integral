@@ -17,6 +17,7 @@ import {
   getBookedSlotsForDate,
 } from '../../services/appointments'
 import { getSettings } from '../../services/settings'
+import { BookingHelp } from './BookingHelp'
 import { uploadPaymentProof } from '../../services/upload'
 import type {
   AppSettings,
@@ -370,6 +371,10 @@ export function BookPage() {
             </label>
           </div>
         )}
+      </div>
+
+      <div className="mt-8">
+        <BookingHelp step={step} />
       </div>
 
       <div className="mt-10 flex justify-between gap-3">

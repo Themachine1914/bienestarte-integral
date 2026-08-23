@@ -3,8 +3,14 @@ import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Search } from 'lucide-react'
 import { formatCurrencyDop, formatDisplayDate } from '../../lib/dates'
+import {
+  canPatientReschedule,
+  MAX_RESCHEDULES,
+  rescheduleBlockMessage,
+} from '../../lib/policy'
 import { getAppointmentByReference } from '../../services/appointments'
 import { StatusBadge } from '../../components/StatusBadge'
+import { RescheduleForm } from './RescheduleForm'
 import type { Appointment } from '../../types'
 
 export function MyAppointmentsPage() {
@@ -16,12 +22,14 @@ export function MyAppointmentsPage() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [result, setResult] = useState<Appointment | null>(null)
+  const [editing, setEditing] = useState(false)
 
   async function lookup(code: string) {
     setLoading(true)
     try {
       const found = await getAppointmentByReference(code)
       setResult(found)
+      setEditing(false)
       setSearched(true)
       if (!found) toast('No encontramos ninguna cita con ese código')
     } catch {
@@ -98,8 +106,85 @@ export function MyAppointmentsPage() {
             </div>
             <StatusBadge status={result.status} />
           </div>
+
+          <PatientActions
+            appointment={result}
+            editing={editing}
+            onStartEdit={() => setEditing(true)}
+            onStopEdit={() => setEditing(false)}
+            onRescheduled={(updated) => {
+              setResult(updated)
+              setEditing(false)
+            }}
+          />
         </article>
       )}
+    </div>
+  )
+}
+
+/**
+ * What the patient may do with the appointment they just looked up.
+ *
+ * Rescheduling is the only action; cancelling is deliberately not offered to
+ * anyone, at any notice. Every refusal ends the same way — talk to Orlandia —
+ * and never leaves a dead button on screen.
+ */
+function PatientActions({
+  appointment,
+  editing,
+  onStartEdit,
+  onStopEdit,
+  onRescheduled,
+}: {
+  appointment: Appointment
+  editing: boolean
+  onStartEdit: () => void
+  onStopEdit: () => void
+  onRescheduled: (updated: Appointment) => void
+}) {
+  // `true` applies the UI grace margin, so the button disappears slightly
+  // before the server would start refusing the write.
+  const verdict = canPatientReschedule(appointment, new Date(), true)
+
+  if (editing) {
+    return (
+      <RescheduleForm
+        appointment={appointment}
+        onDone={onRescheduled}
+        onCancel={onStopEdit}
+      />
+    )
+  }
+
+  return (
+    <div className="mt-5 border-t border-sage-100 pt-4">
+      {verdict.allowed ? (
+        <>
+          <button
+            type="button"
+            onClick={onStartEdit}
+            className="rounded-full border border-sage-300 px-4 py-2 text-sm font-medium text-sage-700 hover:bg-sage-50"
+          >
+            Cambiar fecha u hora
+          </button>
+          <p className="mt-2 text-xs text-muted">
+            Puedes cambiarla hasta 24 horas antes.{' '}
+            {verdict.remaining === MAX_RESCHEDULES
+              ? `Tienes ${MAX_RESCHEDULES} cambios disponibles.`
+              : `Te queda${verdict.remaining === 1 ? '' : 'n'} ${verdict.remaining} cambio${verdict.remaining === 1 ? '' : 's'}.`}
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted">
+          {rescheduleBlockMessage(verdict.reason)}
+        </p>
+      )}
+
+      <p className="mt-3 text-xs text-muted">
+        ¿Necesitas cancelar? No se puede hacer desde el sitio. Escríbele a
+        Orlandia por Instagram con tu código y ella la cancela por ti.
+      </p>
     </div>
   )
 }

@@ -5,6 +5,21 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // An appointment's start as a real instant. `date` and `time` are wall
+    // clock in practice time; the Dominican Republic is UTC-4 all year, with
+    // no daylight saving, so the offset is a constant. Mirrors
+    // appointmentStartUtc() in src/lib/policy.ts — change both together.
+    function apptStartUtc(d, t) {
+      return timestamp.date(int(d[0:4]), int(d[5:7]), int(d[8:10]))
+             + duration.value(int(t[0:2]), 'h')
+             + duration.value(int(t[3:5]), 'm')
+             + duration.value(4, 'h');
+    }
+
+    function outsideRescheduleWindow(d, t) {
+      return request.time < apptStartUtc(d, t) - duration.value(24, 'h');
+    }
+
     match /settings/{doc} {
       allow read: if true;
       allow write: if isAdmin();
@@ -22,13 +37,24 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Booked times, holding no patient data at all. The booking page reads
-    // this to grey out taken slots, so it never needs to see an appointment.
-    // The document id is `${date}_${time}`, which makes `create` an atomic
-    // claim: two people submitting the same slot, only the first succeeds.
+    // Booked times. The document id is `${date}_${time}`, which makes `create`
+    // an atomic claim: two people submitting the same slot, only the first
+    // succeeds.
+    //
+    // `read` has to stay public, and that means `list` too: the booking page
+    // queries this collection by date to grey out taken times. So treat every
+    // field here as world-readable. It once carried `appointmentId`, which was
+    // the patient's lookup code — anyone could list the collection, harvest
+    // every code, and `get` the matching appointment with its name, phone,
+    // email and payment receipt. The lock now stores only when a slot is
+    // taken, never whose it is.
+    //
+    // `hasOnly` enforces that: a write carrying any extra field is rejected,
+    // so an identifier cannot be reintroduced by accident.
     match /slots/{id} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['date', 'time', 'appointmentId'])
+      allow create: if request.resource.data.keys().hasOnly(['id', 'date', 'time', 'createdAt'])
+                    && request.resource.data.keys().hasAll(['date', 'time'])
                     && request.resource.data.date is string
                     && request.resource.data.time is string
                     && id == request.resource.data.date + '_' + request.resource.data.time;
@@ -50,11 +76,47 @@ service cloud.firestore {
                     && request.resource.data.status == 'pending'
                     && request.resource.data.reference == reference;
 
-      allow update, delete: if isAdmin();
+      // A patient may move their own appointment and nothing else. The lookup
+      // code is the only credential, so this is scoped as tightly as it can
+      // be: which fields may change, that the status is untouched, that the
+      // counter goes up by exactly one and stops at the cap, that the old
+      // start is still more than 24 hours away, and that the new one is in
+      // the future. Without the field allow-list, knowing a code would be
+      // enough to set status to 'confirmed' and skip payment review.
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['date', 'time', 'updatedAt', 'rescheduleCount', 'previousSlots'])
+        && resource.data.status in ['pending', 'confirmed']
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.date is string
+        && request.resource.data.time is string
+        && request.resource.data.rescheduleCount == resource.data.get('rescheduleCount', 0) + 1
+        && request.resource.data.rescheduleCount <= 2
+        && request.resource.data.previousSlots.size() <= 2
+        && outsideRescheduleWindow(resource.data.date, resource.data.time)
+        && apptStartUtc(request.resource.data.date, request.resource.data.time) > request.time
+      );
+
+      allow delete: if isAdmin();
     }
 
+    // Written by the public booking flow, so `create` cannot require auth.
+    // The dashboard renders these messages as her feed of what happened, which
+    // makes an unconstrained create a way to put words on her screen — so a
+    // notification has to look like one the app would write, and has to point
+    // at an appointment that exists. Someone holding a real lookup code can
+    // still forge one; someone holding nothing cannot.
     match /notifications/{id} {
-      allow create: if true;
+      allow create: if request.resource.data.keys().hasOnly(
+                         ['type', 'appointmentId', 'message', 'read', 'createdAt'])
+                    && request.resource.data.type in [
+                         'appointment_created', 'appointment_confirmed',
+                         'appointment_rejected', 'appointment_cancelled',
+                         'appointment_rescheduled']
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() < 300
+                    && request.resource.data.read == false
+                    && exists(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId));
       allow read, update, delete: if isAdmin();
     }
   }

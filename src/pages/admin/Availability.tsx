@@ -13,6 +13,7 @@ import {
   saveAvailability,
 } from '../../services/availability'
 import type { AvailabilityConfig } from '../../types'
+import { AvailabilityHelp } from './AvailabilityHelp'
 
 const DAY_LABELS: Record<number, string> = {
   1: 'Lunes',
@@ -109,6 +110,10 @@ export function AvailabilityPage() {
       <p className="mt-1 text-sm text-muted">
         Consulta lunes, martes y miércoles · máx. {MAX_SLOTS_PER_DAY} cupos/día
       </p>
+
+      <div className="mt-6 max-w-xl">
+        <AvailabilityHelp />
+      </div>
 
       <form onSubmit={handleSave} className="mt-8 max-w-xl space-y-6">
         <div>
