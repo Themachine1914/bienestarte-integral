@@ -37,8 +37,23 @@ function normalize(config: Partial<AvailabilityConfig>): AvailabilityConfig {
   }
 }
 
+/**
+ * Compares by value, field by field in a fixed order.
+ *
+ * Stringifying the objects whole compared key *order* too, and Firestore hands
+ * back fields in its own order — so an already-normalized document looked
+ * changed, and every visitor tried to rewrite it. Writing here needs auth, so
+ * the booking page died on load for the public.
+ */
 function isSameConfig(a: AvailabilityConfig, b: AvailabilityConfig): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  const fingerprint = (c: Partial<AvailabilityConfig>) =>
+    JSON.stringify([
+      c.activeDays ?? null,
+      c.slots ?? null,
+      c.sessionDurationMinutes ?? null,
+      c.blockedDates ?? null,
+    ])
+  return fingerprint(a) === fingerprint(b)
 }
 
 export async function getAvailability(): Promise<AvailabilityConfig> {
@@ -58,7 +73,12 @@ export async function getAvailability(): Promise<AvailabilityConfig> {
 
   const raw = snap.data() as AvailabilityConfig
   const clean = normalize(raw)
-  if (!isSameConfig(clean, raw)) await setDoc(ref, clean)
+  // Best-effort self-heal. Only the admin may write here, so a visitor who
+  // happens to load a stale document still gets the cleaned config to book
+  // with instead of an error page.
+  if (!isSameConfig(clean, raw)) {
+    await setDoc(ref, clean).catch(() => undefined)
+  }
   return clean
 }
 
