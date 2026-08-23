@@ -3,7 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/jpeg" href="/brand/logo-seal.jpg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <!-- Installed app. Android reads the manifest; iOS ignores it for the home
+         screen and uses apple-touch-icon, which must be opaque or it renders
+         on black. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#6f7f61" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="default"
+    />
+    <meta name="apple-mobile-web-app-title" content="Bienestarte" />
+    <meta name="application-name" content="Bienestarte" />
     <meta
       name="description"
       content="Bienestarte Integral — Psicoterapia y salud mental con Orlandia Ortiz Almonte, M.A. Citas virtuales."
