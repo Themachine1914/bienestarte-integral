@@ -1,3 +1,16 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin/(.*)", "destination": "/admin.html" },
+    {
+      "source": "/((?!api/|robots\\.txt|sitemap\\.xml|brand/|icons/|manifest\\.webmanifest|sw\\.js|favicon\\.svg).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/reminders",
+      "schedule": "0 12 * * *"
+    }
+  ]
 }
