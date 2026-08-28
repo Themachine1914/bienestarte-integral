@@ -3,7 +3,7 @@
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/admin/(.*)", "destination": "/admin.html" },
     {
-      "source": "/((?!api/|robots\\.txt|sitemap\\.xml|brand/|icons/|manifest\\.webmanifest|sw\\.js|favicon\\.svg).*)",
+      "source": "/((?!api/|robots\\.txt|sitemap\\.xml|google.*\\.html|brand/|icons/|manifest\\.webmanifest|sw\\.js|favicon\\.svg).*)",
       "destination": "/index.html"
     }
   ],
