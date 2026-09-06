@@ -8,14 +8,16 @@ export function AppointmentsHelp() {
       <div>
         <p className="font-medium text-ink">Ver el detalle de una cita</p>
         <p className="mt-1">
-          Cada tarjeta muestra todo lo de esa cita: nombre del paciente, correo
-          y teléfono, la fecha y hora, el tipo de sesión y el monto. Si el
-          paciente escribió una nota al reservar, aparece debajo. A la derecha
-          verás una etiqueta de color con el estado actual.
+          Cada tarjeta muestra todo lo de esa cita: nombre del paciente,
+          teléfono, correo si lo dejó, la fecha y hora, el tipo de sesión y el
+          monto. Si el paciente escribió una nota al reservar, aparece debajo.
+          A la derecha verás una etiqueta de color con el estado actual.
         </p>
         <p className="mt-1">
           El botón <strong>Ver comprobante</strong> abre en otra pestaña la
-          imagen de la transferencia que subió el paciente. El{' '}
+          imagen de la transferencia que subió el paciente. Si pidió un
+          comprobante de servicio, verás su nombre fiscal debajo de la cita.
+          El{' '}
           <strong>código del paciente</strong> (empieza con BI-) es el mismo que
           él usa para consultar su cita; si te escribe con ese código, así lo
           ubicas.
@@ -31,9 +33,9 @@ export function AppointmentsHelp() {
           Cambiar el estado y qué le pasa al cupo
         </p>
         <p className="mt-1">
-          Esta es la parte importante. Cada cita ocupa un cupo en su fecha y
-          hora, y el estado decide si ese cupo sigue reservado o vuelve a
-          quedar libre para otro paciente.
+          Esta es la parte importante. Cada cita ocupa uno, dos o tres cupos
+          corridos en su fecha, y el estado decide si esos cupos siguen
+          reservados o vuelven a quedar libres para otro paciente.
         </p>
         <ul className="mt-2 space-y-1.5">
           <li>
@@ -60,7 +62,22 @@ export function AppointmentsHelp() {
             <strong>Deshacer completada</strong>: la devuelve a confirmada, por
             si la marcaste por error. El cupo no se mueve.
           </li>
+          <li>
+            <strong>Recordatorio WhatsApp</strong>: lo envías tú, cuando
+            quieras. Se abre el chat del paciente con el mensaje ya escrito —
+            fecha, hora y un enlace para que confirme asistencia — y tú solo
+            pulsas enviar. Si el paciente activó avisos en su celular, también
+            le llega una notificación aunque no tenga el sitio abierto. No
+            cambia el estado ni toca el cupo.
+          </li>
         </ul>
+        <p className="mt-2">
+          <strong>El recordatorio no sale solo.</strong> Por ahora no hay envío
+          automático: si no pulsas el botón, al paciente no le llega nada. Una
+          vez enviado, la cita queda marcada como «Recordatorio WhatsApp
+          enviado» y el botón pasa a decir <strong>Reenviar WhatsApp</strong>,
+          para que sepas a quién ya avisaste.
+        </p>
         <p className="mt-2">
           En resumen: <strong>pendiente, confirmada y completada</strong>{' '}
           mantienen la hora reservada. <strong>Rechazada y cancelada</strong> la
@@ -81,6 +98,28 @@ export function AppointmentsHelp() {
       </div>
 
       <div>
+        <p className="font-medium text-ink">Agendar fuera de tu horario</p>
+        <p className="mt-1">
+          Tu agenda normal son los días y las horas que tengas guardados en{' '}
+          <strong>Disponibilidad</strong>. Eso, y solo eso, es lo que ve el
+          paciente en la web.
+        </p>
+        <p className="mt-1">
+          Pero en <strong>Nueva cita</strong> puedes marcar{' '}
+          <strong>Fuera del horario habitual</strong> y escribir la fecha y la
+          hora que quieras: un viernes, un sábado, las 7 de la mañana, o un día
+          que habías bloqueado. No tienes que ir a Disponibilidad ni desbloquear
+          nada primero.
+        </p>
+        <p className="mt-1">
+          Esa cita solo existe para ti: no abre el día en la web, así que ningún
+          otro paciente puede reservar ahí. Si en cambio quieres abrir un
+          horario para todos, eso sí se cambia en{' '}
+          <strong>Disponibilidad</strong>.
+        </p>
+      </div>
+
+      <div>
         <p className="font-medium text-ink">Reprogramar una cita</p>
         <p className="mt-1">
           El botón <strong>Reprogramar</strong> aparece en las citas pendientes
@@ -90,12 +129,22 @@ export function AppointmentsHelp() {
         </p>
         <p className="mt-1">
           <strong>A ti no te aplica el límite de 24 horas.</strong> Puedes mover
-          una sesión que empieza en un rato. Lo único que el sistema no te deja
-          es mover una cita a un horario que no ofreces o que ya está tomado.
+          una sesión que empieza en un rato. Y si marcas{' '}
+          <strong>Fuera del horario habitual</strong>, eliges cualquier día y
+          hora, aunque no estén en tu agenda. Lo único que nunca podrás hacer es
+          poner dos citas en el mismo cupo.
+        </p>
+        <p className="mt-1">
+          Antes de confirmar puedes escribir una{' '}
+          <strong>nota para el paciente</strong> — por ejemplo por qué tuviste
+          que mover la sesión. Al confirmar aparece el botón{' '}
+          <strong>Avisar por WhatsApp</strong>: se abre su chat con el mensaje
+          ya escrito, con la fecha nueva, tu nota y el enlace para que consulte
+          su cita. Tú solo pulsas enviar.
         </p>
         <p className="mt-1">
           El paciente conserva su mismo código, y al consultarlo verá la fecha
-          nueva. Aun así, conviene avisarle tú.
+          nueva.
         </p>
       </div>
 
@@ -116,9 +165,18 @@ export function AppointmentsHelp() {
           siendo solo tuyo.
         </p>
         <p className="mt-1">
+          También puede <strong>confirmar su asistencia</strong>, desde{' '}
+          <strong>Mis citas</strong> o desde el enlace del recordatorio que le
+          envías. Cuando lo hace, en su tarjeta aquí aparece{' '}
+          <strong>«El paciente confirmó asistencia»</strong>.
+        </p>
+        <p className="mt-1">
           Cada cambio que hace un paciente aparece en{' '}
-          <strong>Novedades</strong>, en el Dashboard. Revísalo: es la forma de
-          enterarte, porque el sistema no envía correos.
+          <strong>Novedades</strong>, en el Dashboard. Si activaste avisos en
+          este celular (abajo del panel), una cita nueva también te llega
+          aunque tengas la app cerrada. El sitio no envía correos: el aviso al
+          paciente sale por WhatsApp cuando tú lo mandas, y por notificación
+          si él activó avisos.
         </p>
       </div>
 

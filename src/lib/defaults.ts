@@ -65,12 +65,26 @@ export const DEFAULT_SETTINGS: AppSettings = {
     'Para confirmar tu sesión envía: nombre del paciente, fecha y hora de la cita, y el comprobante de transferencia o depósito.',
 }
 
+/** Where patients reach a human. Replies land on Orlandia's own phone. */
+export const PRACTICE_WHATSAPP_DISPLAY = '809-401-8960'
+export const PRACTICE_WHATSAPP_URL = 'https://wa.me/18094018960'
+
 /** Practice only books Monday–Wednesday (1–3). */
 export const PRACTICE_WEEKDAYS = [1, 2, 3]
 
+/** 9:00 AM, 10:00 AM, 11:00 AM, 2:00 PM, 3:00 PM, 4:00 PM */
+export const PRACTICE_SLOTS = [
+  '09:00',
+  '10:00',
+  '11:00',
+  '14:00',
+  '15:00',
+  '16:00',
+]
+
 export const DEFAULT_AVAILABILITY: AvailabilityConfig = {
   activeDays: [...PRACTICE_WEEKDAYS],
-  slots: ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00'],
+  slots: [...PRACTICE_SLOTS],
   sessionDurationMinutes: 50,
   blockedDates: [],
 }

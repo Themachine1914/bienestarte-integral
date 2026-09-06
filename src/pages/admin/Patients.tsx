@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { formatDisplayDate } from '../../lib/dates'
+import { formatAppointmentClock } from '../../lib/time'
 import { getAppointmentsForPatient } from '../../services/appointments'
 import { listPatients, updatePatientNotes } from '../../services/patients'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -68,7 +69,8 @@ export function PatientsPage() {
               >
                 <p className="font-medium text-ink">{p.name}</p>
                 <p className="text-xs text-muted">
-                  {p.email} · {p.phone}
+                  {p.email ? `${p.email} · ` : ''}
+                  {p.phone}
                 </p>
               </button>
             ))
@@ -79,8 +81,12 @@ export function PatientsPage() {
           <div className="border border-sage-100 bg-white p-5">
             <h2 className="font-display text-2xl text-ink">{selected.name}</h2>
             <p className="text-sm text-muted">
-              {selected.email}
-              <br />
+              {selected.email ? (
+                <>
+                  {selected.email}
+                  <br />
+                </>
+              ) : null}
               {selected.phone}
             </p>
 
@@ -112,7 +118,7 @@ export function PatientsPage() {
                     className="flex items-center justify-between gap-2 border border-sage-50 px-3 py-2 text-sm"
                   >
                     <span>
-                      {formatDisplayDate(a.date)} · {a.time}
+                      {formatDisplayDate(a.date)} · {formatAppointmentClock(a)}
                     </span>
                     <StatusBadge status={a.status} />
                   </div>

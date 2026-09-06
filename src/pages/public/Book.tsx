@@ -17,12 +17,23 @@ import {
   getBookedSlotsForDate,
 } from '../../services/appointments'
 import { getSettings } from '../../services/settings'
+import {
+  expandBlock,
+  formatAppointmentClock,
+  formatBlockLabel,
+  hoursHint,
+  hoursLabel,
+  startsForDuration,
+} from '../../lib/time'
+import { EnablePush } from '../../components/EnablePush'
+import { ReceiptRequest } from '../../components/ReceiptRequest'
 import { BookingHelp } from './BookingHelp'
 import { uploadPaymentProof } from '../../services/upload'
 import type {
   AppSettings,
   Appointment,
   AvailabilityConfig,
+  SessionHours,
   SessionType,
 } from '../../types'
 
@@ -41,6 +52,7 @@ export function BookPage() {
   )
   const [sessionType, setSessionType] = useState<SessionType>(initialType)
   const [date, setDate] = useState<string>('')
+  const [hours, setHours] = useState<SessionHours>(1)
   const [time, setTime] = useState('')
   const [booked, setBooked] = useState<string[]>([])
   const [name, setName] = useState('')
@@ -74,7 +86,12 @@ export function BookPage() {
     () => (availability ? getBookableDates(availability) : []),
     [availability],
   )
-  const freeSlots = availability ? getOpenSlots(date, availability, booked) : []
+  const openSlots = availability ? getOpenSlots(date, availability, booked) : []
+  const freeStarts = availability
+    ? startsForDuration(hours, openSlots, availability.slots)
+    : []
+  const selectedTimes = time ? expandBlock(time, hours) : []
+  const total = session ? session.priceDop * hours : 0
 
   function next() {
     if (step === 0 && !sessionType) return
@@ -87,11 +104,11 @@ export function BookPage() {
       return
     }
     if (step === 3) {
-      if (!name.trim() || !phone.trim() || !email.trim()) {
-        toast.error('Completa nombre, teléfono y email')
+      if (!name.trim() || !phone.trim()) {
+        toast.error('Completa nombre y teléfono')
         return
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         toast.error('Email inválido')
         return
       }
@@ -112,9 +129,9 @@ export function BookPage() {
         phone,
         email,
         sessionType,
-        price: session.priceDop,
         date,
         time,
+        hours,
         notes,
         paymentProofUrl: proof.url,
         paymentProofName: proof.name,
@@ -137,7 +154,8 @@ export function BookPage() {
         <h1 className="font-display text-3xl text-ink">Solicitud recibida</h1>
         <p className="mt-3 text-muted">
           Tu cita del {formatDisplayDate(confirmed.date)} a las{' '}
-          {confirmed.time} está <strong>pendiente de confirmación</strong>.
+          {formatAppointmentClock(confirmed)} ({hoursLabel(confirmed.hours ?? 1)})
+          está <strong>pendiente de confirmación</strong>.
           Orlandia revisará tu comprobante y te confirmará.
         </p>
 
@@ -153,6 +171,16 @@ export function BookPage() {
             solo tú lo tienes.
           </p>
         </div>
+
+        {settings && (
+          <ReceiptRequest
+            appointment={confirmed}
+            settings={settings}
+            onUpdated={setConfirmed}
+          />
+        )}
+
+        <EnablePush audience="patient" appointmentId={confirmed.id} />
 
         <Link
           to="/mis-citas"
@@ -251,27 +279,61 @@ export function BookPage() {
 
         {step === 2 && (
           <div>
+            <p className="mb-3 text-sm font-medium text-ink">¿Cuántas horas?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([1, 2, 3] as SessionHours[]).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    setHours(n)
+                    setTime('')
+                  }}
+                  className={`rounded-lg border px-2 py-3 text-center text-sm ${
+                    hours === n
+                      ? 'border-sage-500 bg-sage-50 text-sage-700'
+                      : 'border-sage-100 bg-white text-ink hover:border-sage-200'
+                  }`}
+                >
+                  <span className="block font-medium">{hoursLabel(n)}</span>
+                  <span className="mt-1 block text-xs text-muted">
+                    {hoursHint(n)}
+                    {session ? ` · ${formatCurrencyDop(session.priceDop * n)}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+
             {!date ? (
-              <p className="text-muted">Primero elige una fecha.</p>
-            ) : freeSlots.length === 0 ? (
-              <p className="text-muted">No hay horarios libres este día.</p>
+              <p className="mt-6 text-muted">Primero elige una fecha.</p>
+            ) : freeStarts.length === 0 ? (
+              <p className="mt-6 text-muted">
+                {hours === 1
+                  ? 'No hay horarios libres este día.'
+                  : `No hay ${hours} horas corridas libres este día. Prueba con menos horas u otro día.`}
+              </p>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {freeSlots.map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setTime(slot)}
-                    className={`rounded-lg border py-3 text-sm font-medium ${
-                      time === slot
-                        ? 'border-sage-500 bg-sage-50 text-sage-700'
-                        : 'border-sage-100 bg-white text-ink hover:border-sage-200'
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
+              <>
+                <p className="mt-6 text-sm font-medium text-ink">
+                  Hora de inicio
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {freeStarts.map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => setTime(slot)}
+                      className={`rounded-lg border py-3 text-sm font-medium ${
+                        time === slot
+                          ? 'border-sage-500 bg-sage-50 text-sage-700'
+                          : 'border-sage-100 bg-white text-ink hover:border-sage-200'
+                      }`}
+                    >
+                      {formatBlockLabel(expandBlock(slot, hours))}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -281,11 +343,10 @@ export function BookPage() {
             <Field label="Nombre completo" value={name} onChange={setName} required />
             <Field label="Teléfono" value={phone} onChange={setPhone} required />
             <Field
-              label="Email"
+              label="Email (opcional)"
               value={email}
               onChange={setEmail}
               type="email"
-              required
             />
             <label className="block">
               <span className="text-sm font-medium text-ink">
@@ -305,11 +366,12 @@ export function BookPage() {
           <div className="space-y-6">
             <div className="border border-sage-100 bg-sage-50/50 p-4 text-sm">
               <p>
-                <strong>{session.label}</strong> ·{' '}
-                {formatCurrencyDop(session.priceDop)}
+                <strong>{session.label}</strong> · {hoursLabel(hours)} ·{' '}
+                {formatCurrencyDop(total)}
               </p>
               <p className="text-muted">
-                {formatDisplayDate(date)} · {time} · Virtual
+                {formatDisplayDate(date)} · {formatBlockLabel(selectedTimes)} ·
+                Virtual
               </p>
             </div>
 
@@ -357,7 +419,7 @@ export function BookPage() {
                 Subir comprobante de pago *
               </span>
               <span className="mt-1 text-xs text-muted">
-                JPG, PNG o PDF · obligatorio
+                JPG, PNG o PDF · máx. 8 MB · obligatorio
               </span>
               {file && (
                 <span className="mt-3 text-xs text-sage-600">{file.name}</span>
@@ -366,7 +428,18 @@ export function BookPage() {
                 type="file"
                 accept="image/*,.pdf"
                 className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const next = e.target.files?.[0] ?? null
+                  if (next && next.size > 8 * 1024 * 1024) {
+                    toast.error(
+                      'El comprobante no puede pesar más de 8 MB. Usa una foto más liviana o un PDF más pequeño.',
+                    )
+                    e.target.value = ''
+                    setFile(null)
+                    return
+                  }
+                  setFile(next)
+                }}
               />
             </label>
           </div>

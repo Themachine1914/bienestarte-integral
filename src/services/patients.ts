@@ -34,7 +34,7 @@ export async function findOrCreatePatient(input: {
     const patients = localDb.getPatients()
     const existing = patients.find(
       (p) =>
-        p.email.toLowerCase() === email ||
+        (email !== '' && p.email.toLowerCase() === email) ||
         p.phone.replace(/\D/g, '') === phone.replace(/\D/g, ''),
     )
     if (existing) {
@@ -42,7 +42,7 @@ export async function findOrCreatePatient(input: {
         ...existing,
         name: input.name.trim(),
         phone,
-        email,
+        email: email || existing.email,
         updatedAt: now,
       }
       localDb.savePatients(
@@ -67,7 +67,7 @@ export async function findOrCreatePatient(input: {
   const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Patient)
   const existing = all.find(
     (p) =>
-      p.email.toLowerCase() === email ||
+      (email !== '' && p.email.toLowerCase() === email) ||
       p.phone.replace(/\D/g, '') === phone.replace(/\D/g, ''),
   )
   if (existing) {
@@ -75,7 +75,7 @@ export async function findOrCreatePatient(input: {
       ...existing,
       name: input.name.trim(),
       phone,
-      email,
+      email: email || existing.email,
       updatedAt: now,
     }
     await setDoc(doc(db, 'patients', existing.id), updated)

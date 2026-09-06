@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDisplayDate } from '../../lib/dates'
+import { formatAppointmentClock } from '../../lib/time'
 import { listAppointments } from '../../services/appointments'
 import { listNotifications } from '../../services/notifications'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -103,7 +104,7 @@ export function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-ink">{a.patientName}</p>
                   <p className="text-sm text-muted">
-                    {formatDisplayDate(a.date)} · {a.time}
+                    {formatDisplayDate(a.date)} · {formatAppointmentClock(a)}
                   </p>
                 </div>
                 {a.paymentProofUrl && (
@@ -139,7 +140,7 @@ export function DashboardPage() {
                 <div>
                   <p className="font-medium text-ink">{a.patientName}</p>
                   <p className="text-sm text-muted">
-                    {formatDisplayDate(a.date)} · {a.time}
+                    {formatDisplayDate(a.date)} · {formatAppointmentClock(a)}
                   </p>
                 </div>
                 <StatusBadge status={a.status} />

@@ -9,6 +9,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
+import { EnablePush } from '../components/EnablePush'
 import { useAuth } from '../context/AuthContext'
 
 const links = [
@@ -102,6 +103,7 @@ export function AdminLayout() {
         </div>
         <div className="p-4 sm:p-6 lg:p-8">
           <Outlet />
+          <EnablePush audience="admin" />
         </div>
       </div>
       <Toaster position="top-center" />

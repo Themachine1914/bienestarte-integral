@@ -2,17 +2,21 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /payment-proofs/{fileName} {
-      // Download URLs carry their own access token, so this only guards the
-      // listing/API path — the URL itself is the secret, and it is stored on
-      // an appointment that needs the patient's code to read.
-      allow read: if request.auth != null;
+      // getDownloadURL() needs `get` for the unauthenticated patient who just
+      // uploaded. `list` stays admin-only so nobody can walk every receipt.
+      // The download URL still carries its own token.
+      allow get: if true;
+      // Nothing in the app walks this bucket, and `request.auth != null` was
+      // not a real gate: anyone can self-register. Closed outright — receipts
+      // are reached through the URL stored on each appointment.
+      allow list: if false;
 
       // Anonymous create is required: patients upload a receipt before there
       // is any account. Bounded by size and type, and write-once so an
       // existing proof can never be swapped out or deleted from the client.
       allow create: if request.resource.size < 8 * 1024 * 1024
                     && request.resource.contentType.matches('image/.*|application/pdf');
-      allow update, delete: if request.auth != null;
+      allow update, delete: if false;
     }
 
     match /{allPaths=**} {

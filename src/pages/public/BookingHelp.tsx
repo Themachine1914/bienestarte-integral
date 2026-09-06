@@ -1,4 +1,5 @@
 import { HelpPanel } from '../../components/HelpPanel'
+import { WhatsAppLink } from '../../components/WhatsAppLink'
 
 const TITLES = [
   '¿Cómo elijo el tipo de sesión?',
@@ -22,8 +23,8 @@ export function BookingHelp({ step }: { step: number }) {
           </p>
           <p>
             Todas las sesiones son <strong>virtuales</strong>. Si no estás
-            segura de cuál te corresponde, escríbele a Orlandia por Instagram
-            antes de reservar.
+            segura de cuál te corresponde, escríbele a Orlandia por WhatsApp
+            al <WhatsAppLink /> antes de reservar.
           </p>
         </>
       )}
@@ -45,15 +46,19 @@ export function BookingHelp({ step }: { step: number }) {
       {step === 2 && (
         <>
           <p>
-            Ves únicamente las horas que siguen libres. Una hora{' '}
-            <strong>no aparece</strong> por dos razones: alguien ya la reservó,
-            o ya pasó (si elegiste hoy).
+            Puedes reservar <strong>1, 2 o 3 sesiones corridas</strong> en la
+            misma solicitud. Cada cupo dura 50 minutos. El total es el precio
+            de la sesión por la cantidad de cupos. No hace falta hacer varias
+            citas.
           </p>
           <p>
-            Los cupos se toman por orden de llegada y son pocos al día. Puede
-            ocurrir que alguien reserve tu hora mientras completas el
-            formulario; si pasa, te avisamos al final y podrás elegir otra.
-            Nadie pierde su cupo por eso.
+            Las sesiones corridas son del mismo bloque: mañana (9, 10 y 11) o
+            tarde (2, 3 y 4). No se pueden unir las 11:00 con las 2:00.
+          </p>
+          <p>
+            Ves únicamente las horas de inicio en las que <strong>todo</strong>{' '}
+            el bloque sigue libre. Una hora no aparece si alguien ya la
+            reservó o si ya pasó (si elegiste hoy).
           </p>
         </>
       )}
@@ -61,9 +66,9 @@ export function BookingHelp({ step }: { step: number }) {
       {step === 3 && (
         <>
           <p>
-            El <strong>nombre, teléfono y correo</strong> son para que Orlandia
-            pueda identificarte y contactarte sobre tu cita. Nadie más ve estos
-            datos.
+            El <strong>nombre y el teléfono</strong> son para que Orlandia
+            pueda identificarte y escribirte por WhatsApp. El correo es
+            opcional. Nadie más ve estos datos.
           </p>
           <p>
             El campo de notas es opcional. Puedes usarlo para contarle algo
@@ -75,9 +80,10 @@ export function BookingHelp({ step }: { step: number }) {
       {step === 4 && (
         <>
           <p>
-            <strong>1. Transfiere el monto</strong> a cualquiera de las cuentas
-            que aparecen arriba. Elige la del banco que te quede más cómodo y
-            la moneda que vayas a usar.
+            <strong>1. Transfiere el total</strong> que aparece arriba a
+            cualquiera de las cuentas. Si reservaste más de una hora, es un
+            solo pago por el bloque completo. Elige el banco que te quede más
+            cómodo y la moneda que vayas a usar.
           </p>
           <p>
             La <strong>cédula</strong> que aparece junto a cada cuenta es la de
@@ -98,16 +104,22 @@ export function BookingHelp({ step }: { step: number }) {
             cita después, y solo tú lo tienes.
           </p>
           <p>
-            Orlandia revisa el comprobante y confirma la cita. Como no se envían
-            correos automáticos, consulta el estado tú misma en{' '}
-            <strong>Mis citas</strong> con tu código.
+            Orlandia revisa el comprobante de transferencia y confirma la
+            cita. Si después quieres un <strong>comprobante de servicio en
+            PDF</strong> (para tu contabilidad; no es el de la transferencia
+            ni una factura fiscal), puedes pedirlo en la pantalla de
+            confirmación o en <strong>Mis citas</strong>.
+            Antes de la sesión te escribe por WhatsApp para que confirmes tu
+            asistencia.
+            No hace falta esperar ese mensaje: puedes consultar el estado y
+            confirmar tú misma en <strong>Mis citas</strong> con tu código.
           </p>
           <p>
             <strong>¿Necesitas cambiar la fecha después?</strong> Puedes
             hacerlo tú misma desde <strong>Mis citas</strong>, hasta 24 horas
             antes de la sesión y como máximo dos veces. Más cerca de la hora, o
-            si necesitas cancelar, escríbele a Orlandia por Instagram con tu
-            código.
+            si necesitas cancelar, escríbele a Orlandia por WhatsApp al{' '}
+            <WhatsAppLink /> con tu código.
           </p>
         </>
       )}

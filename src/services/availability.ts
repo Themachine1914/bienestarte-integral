@@ -1,7 +1,10 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { DEFAULT_AVAILABILITY, PRACTICE_WEEKDAYS } from '../lib/defaults'
+import {
+  DEFAULT_AVAILABILITY,
+  PRACTICE_SLOTS,
+  PRACTICE_WEEKDAYS,
+} from '../lib/defaults'
 import { db, isFirebaseConfigured } from '../lib/firebase'
-import { normalizeSlots } from '../lib/time'
 import type { AvailabilityConfig } from '../types'
 import { localDb } from './localDb'
 
@@ -23,12 +26,11 @@ function normalize(config: Partial<AvailabilityConfig>): AvailabilityConfig {
     .filter((d) => DATE_KEY.test(d))
     .sort()
 
-  const slots = normalizeSlots(config.slots ?? [])
   const duration = Number(config.sessionDurationMinutes)
 
   return {
     activeDays,
-    slots: slots.length > 0 ? slots : [...DEFAULT_AVAILABILITY.slots],
+    slots: [...PRACTICE_SLOTS],
     sessionDurationMinutes:
       Number.isFinite(duration) && duration >= 15 && duration <= 240
         ? duration

@@ -1,8 +1,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    /**
+     * Being signed in is not enough. Email/password signup is open on this
+     * project — anyone with the web API key, which ships in the bundle, can
+     * create an account — so `request.auth != null` let a stranger read the
+     * patient records. Admin is an explicit grant: a document under /admins
+     * named after the uid, writable only from the console or the Admin SDK.
+     */
     function isAdmin() {
-      return request.auth != null;
+      return request.auth != null
+             && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // The grant itself. An account may check its own, and nothing more: no
+    // listing who the admins are, and no client can ever add one.
+    match /admins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
     }
 
     // An appointment's start as a real instant. `date` and `time` are wall
@@ -18,6 +33,21 @@ service cloud.firestore {
 
     function outsideRescheduleWindow(d, t) {
       return request.time < apptStartUtc(d, t) - duration.value(24, 'h');
+    }
+
+    function minutesOf(t) {
+      return int(t[0:2]) * 60 + int(t[3:5]);
+    }
+
+    function consecutiveTimes(times, hours, start) {
+      return times.size() == hours
+             && times[0] == start
+             && (hours == 1
+                 || (times.size() >= 2
+                     && minutesOf(times[1]) == minutesOf(times[0]) + 60))
+             && (hours < 3
+                 || (times.size() >= 3
+                     && minutesOf(times[2]) == minutesOf(times[0]) + 120));
     }
 
     match /settings/{doc} {
@@ -74,7 +104,17 @@ service cloud.firestore {
                          'date', 'time', 'status', 'paymentProofUrl'
                        ])
                     && request.resource.data.status == 'pending'
-                    && request.resource.data.reference == reference;
+                    && request.resource.data.reference == reference
+                    && request.resource.data.get('hours', 1) in [1, 2, 3]
+                    && request.resource.data.times is list
+                    && consecutiveTimes(
+                         request.resource.data.times,
+                         request.resource.data.get('hours', 1),
+                         request.resource.data.time
+                       )
+                    && request.resource.data.price is number
+                    && request.resource.data.price >= 0
+                    && request.resource.data.price <= 20000;
 
       // A patient may move their own appointment and nothing else. The lookup
       // code is the only credential, so this is scoped as tightly as it can
@@ -85,16 +125,43 @@ service cloud.firestore {
       // enough to set status to 'confirmed' and skip payment review.
       allow update: if isAdmin() || (
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['date', 'time', 'updatedAt', 'rescheduleCount', 'previousSlots'])
+          .hasOnly(['date', 'time', 'times', 'hours', 'updatedAt', 'rescheduleCount', 'previousSlots', 'reminderSentAt', 'attendanceConfirmedAt'])
         && resource.data.status in ['pending', 'confirmed']
         && request.resource.data.status == resource.data.status
         && request.resource.data.date is string
         && request.resource.data.time is string
+        && request.resource.data.hours == resource.data.get('hours', 1)
+        && request.resource.data.times is list
+        && consecutiveTimes(
+             request.resource.data.times,
+             request.resource.data.hours,
+             request.resource.data.time
+           )
         && request.resource.data.rescheduleCount == resource.data.get('rescheduleCount', 0) + 1
         && request.resource.data.rescheduleCount <= 2
         && request.resource.data.previousSlots.size() <= 2
         && outsideRescheduleWindow(resource.data.date, resource.data.time)
         && apptStartUtc(request.resource.data.date, request.resource.data.time) > request.time
+      ) || (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['attendanceConfirmedAt', 'updatedAt'])
+        && resource.data.status in ['pending', 'confirmed']
+        && request.resource.data.attendanceConfirmedAt is string
+      ) || (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['invoice', 'updatedAt'])
+        && resource.data.status in ['pending', 'confirmed', 'completed']
+        && !('invoice' in resource.data)
+        && request.resource.data.invoice.keys().hasOnly(['requestedAt', 'legalName', 'rncCedula', 'email'])
+        && request.resource.data.invoice.keys().hasAll(['requestedAt', 'legalName', 'rncCedula', 'email'])
+        && request.resource.data.invoice.legalName is string
+        && request.resource.data.invoice.legalName.size() >= 2
+        && request.resource.data.invoice.legalName.size() < 120
+        && request.resource.data.invoice.rncCedula is string
+        && request.resource.data.invoice.rncCedula.size() < 30
+        && request.resource.data.invoice.email is string
+        && request.resource.data.invoice.email.size() < 80
+        && request.resource.data.invoice.requestedAt is string
       );
 
       allow delete: if isAdmin();
@@ -112,12 +179,18 @@ service cloud.firestore {
                     && request.resource.data.type in [
                          'appointment_created', 'appointment_confirmed',
                          'appointment_rejected', 'appointment_cancelled',
-                         'appointment_rescheduled']
+                         'appointment_rescheduled', 'appointment_reminder']
                     && request.resource.data.message is string
                     && request.resource.data.message.size() < 300
                     && request.resource.data.read == false
                     && exists(/databases/$(database)/documents/appointments/$(request.resource.data.appointmentId));
       allow read, update, delete: if isAdmin();
+    }
+
+    // Written only by /api/push with the Admin SDK. Clients must not list
+    // endpoints — they are enough to send spam to a phone.
+    match /pushSubscriptions/{id} {
+      allow read, write: if false;
     }
   }
 }

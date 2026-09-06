@@ -15,9 +15,9 @@ export function HomePage() {
         <div className="relative mx-auto flex min-h-[calc(100svh-4.5rem)] max-w-6xl items-end px-4 pb-10 pt-16 sm:px-6 md:min-h-[calc(100svh-5rem)] md:items-center md:py-20">
           <div className="max-w-md fade-up md:ml-auto md:max-w-lg">
             <h1 className="font-display text-[2.15rem] leading-[1.12] text-ink sm:text-5xl lg:text-[3.35rem]">
-              <span className="block">Comprender tu historia.</span>
-              <span className="block">Regular tu presente.</span>
-              <span className="block">Construir bienestar.</span>
+              <span className="block">Comprender tu historia</span>
+              <span className="block">Regular tu presente</span>
+              <span className="block">Construir bienestar</span>
             </h1>
             <p className="mt-5 max-w-md text-sm leading-relaxed text-ink/80 sm:text-base">
               Psicoterapia individual, de pareja y familia, con atención

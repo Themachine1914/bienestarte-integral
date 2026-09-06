@@ -9,6 +9,7 @@ import {
 } from 'react'
 import {
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   type User,
@@ -23,14 +24,18 @@ interface AuthContextValue {
   isDemoMode: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  resetPassword: (email: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const DEMO_EMAIL =
-  import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'admin@bienestarteintegral.com'
-const DEMO_PASSWORD =
-  import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'bienestarte2026'
+/**
+ * Offline credentials for developing without Firebase. Both have to be set on
+ * purpose: there is no built-in fallback password, so a build that loses its
+ * Firebase config refuses every login instead of accepting a well-known one.
+ */
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_ADMIN_EMAIL
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_ADMIN_PASSWORD
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -52,6 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     if (!isFirebaseConfigured || !auth) {
+      if (!DEMO_EMAIL || !DEMO_PASSWORD) {
+        throw new Error(
+          'No hay conexión con el servidor. Espera un momento y vuelve a intentarlo.',
+        )
+      }
       if (
         email.trim().toLowerCase() === DEMO_EMAIL.toLowerCase() &&
         password === DEMO_PASSWORD
@@ -63,6 +73,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Credenciales incorrectas (modo demo)')
     }
     await signInWithEmailAndPassword(auth, email.trim(), password)
+  }, [])
+
+  /**
+   * The only way back in. There is no second admin account and no password
+   * kept anywhere, so without this she would need someone with console access
+   * to rescue her.
+   */
+  const resetPassword = useCallback(async (email: string) => {
+    if (!isFirebaseConfigured || !auth) {
+      throw new Error('No disponible sin conexión al servidor')
+    }
+    await sendPasswordResetEmail(auth, email.trim())
   }, [])
 
   const logout = useCallback(async () => {
@@ -82,8 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDemoMode: !isFirebaseConfigured,
       login,
       logout,
+      resetPassword,
     }),
-    [user, demoAdmin, loading, login, logout],
+    [user, demoAdmin, loading, login, logout, resetPassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

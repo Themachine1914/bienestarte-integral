@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/jpeg" href="/brand/logo-seal.jpg" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <!-- Same app as index.html, served on /admin/*. It exists only so the head
+         already names the admin manifest when Safari reads it: iOS decides what
+         "Añadir a inicio" installs from the initial HTML and never notices a
+         manifest link that React swaps in later. -->
+    <link rel="manifest" href="/admin.webmanifest" />
+    <meta name="theme-color" content="#6f7f61" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Bienestarte Admin" />
+    <meta name="application-name" content="Bienestarte Admin" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="Panel administrativo de Bienestarte Integral."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>Bienestarte Admin</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

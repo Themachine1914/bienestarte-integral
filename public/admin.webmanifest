@@ -1,17 +1,17 @@
 {
-  "id": "/",
-  "name": "Bienestarte Integral",
-  "short_name": "Bienestarte",
-  "description": "Psicoterapia y salud mental con Orlandia Ortiz Almonte, M.A. Agenda tu cita virtual.",
+  "id": "/admin",
+  "name": "Bienestarte Admin",
+  "short_name": "Bienestarte Admin",
+  "description": "Panel administrativo de Bienestarte Integral: citas, pacientes y disponibilidad.",
   "lang": "es",
   "dir": "ltr",
-  "start_url": "/",
+  "start_url": "/admin",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fbfaf7",
   "theme_color": "#6f7f61",
-  "categories": ["health", "medical", "lifestyle"],
+  "categories": ["productivity", "medical"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -34,15 +34,15 @@
   ],
   "shortcuts": [
     {
-      "name": "Agendar cita",
-      "short_name": "Agendar",
-      "url": "/agendar",
+      "name": "Citas",
+      "short_name": "Citas",
+      "url": "/admin/citas",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Mis citas",
-      "short_name": "Mis citas",
-      "url": "/mis-citas",
+      "name": "Disponibilidad",
+      "short_name": "Agenda",
+      "url": "/admin/disponibilidad",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]

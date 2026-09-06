@@ -8,17 +8,32 @@ import {
   setDoc,
   updateDoc,
   where,
+  deleteField,
 } from 'firebase/firestore'
 import { isBookableDateKey } from '../lib/dates'
 import { db, isFirebaseConfigured } from '../lib/firebase'
 import { generateReference, normalizeReference } from '../lib/reference'
 import { canPatientReschedule, rescheduleBlockMessage } from '../lib/policy'
-import { isSlotInPast } from '../lib/time'
-import type { Appointment, AppointmentStatus, SlotLock } from '../types'
+import { notifyPush } from '../lib/push'
+import {
+  appointmentTimes,
+  expandBlock,
+  isSlotInPast,
+  isValidTimeSlot,
+  normalizeHours,
+} from '../lib/time'
+import type {
+  Appointment,
+  AppointmentStatus,
+  InvoiceRequest,
+  SessionHours,
+  SlotLock,
+} from '../types'
 import { getAvailability } from './availability'
 import { localDb } from './localDb'
 import { createNotification } from './notifications'
 import { findOrCreatePatient } from './patients'
+import { getSettings } from './settings'
 import { listSlotIds, releaseSlot, slotId } from './slots'
 
 export { getBookedSlotsForDate } from './slots'
@@ -72,36 +87,62 @@ async function writeSlotLock(lock: SlotLock): Promise<void> {
 }
 
 /**
- * Claims a time atomically. In Firestore the transaction fails if another
- * booking created the same slot id first, so concurrent submissions cannot
- * both win. Demo mode is single-threaded, so a plain check is equivalent.
+ * Claims every hour of a block atomically. In Firestore the transaction
+ * fails if another booking created any of the same slot ids first, so
+ * concurrent submissions cannot both win. Demo mode is single-threaded,
+ * so a plain check is equivalent.
  */
-async function claimSlot(date: string, time: string): Promise<void> {
-  const id = slotId(date, time)
-  const lock: SlotLock = {
-    id,
+async function claimSlots(date: string, times: string[]): Promise<void> {
+  const taken = new Error('Ese horario ya no está disponible. Elige otra hora.')
+  const now = new Date().toISOString()
+  const locks: SlotLock[] = times.map((time) => ({
+    id: slotId(date, time),
     date,
     time,
-    createdAt: new Date().toISOString(),
-  }
-  const taken = new Error('Ese horario ya no está disponible. Elige otra hora.')
+    createdAt: now,
+  }))
 
   if (!isFirebaseConfigured || !db) {
-    if (localDb.getSlots().some((s) => s.id === id)) throw taken
-    localDb.saveSlots([...localDb.getSlots(), lock])
+    const existing = localDb.getSlots()
+    if (locks.some((lock) => existing.some((s) => s.id === lock.id))) {
+      throw taken
+    }
+    localDb.saveSlots([...existing, ...locks])
     return
   }
 
   const database = db
   await runTransaction(database, async (tx) => {
-    const ref = doc(database, 'slots', id)
-    const existing = await tx.get(ref)
-    if (existing.exists()) throw taken
-    tx.set(ref, lock)
+    const refs = locks.map((lock) => doc(database, 'slots', lock.id))
+    const snaps = await Promise.all(refs.map((ref) => tx.get(ref)))
+    if (snaps.some((snap) => snap.exists())) throw taken
+    locks.forEach((lock, i) => {
+      tx.set(refs[i], lock)
+    })
   })
 }
 
-async function assertBookable(date: string, time: string): Promise<void> {
+async function releaseSlots(date: string, times: string[]): Promise<void> {
+  await Promise.all(times.map((time) => releaseSlot(date, time)))
+}
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * `override` is the admin booking off the published grid on purpose: an extra
+ * patient on a Friday, an early hour, a day she had blocked for herself. The
+ * slot lock still applies, so the one thing she cannot do is double-book.
+ */
+async function assertBookable(
+  date: string,
+  time: string,
+  { override = false }: { override?: boolean } = {},
+): Promise<void> {
+  if (!DATE_KEY.test(date) || !isValidTimeSlot(time)) {
+    throw new Error('Fecha u hora inválida.')
+  }
+  if (override) return
+
   const availability = await getAvailability()
 
   if (!availability.slots.includes(time)) {
@@ -120,62 +161,78 @@ export async function createAppointment(input: {
   phone: string
   email: string
   sessionType: Appointment['sessionType']
-  price: number
   date: string
   time: string
+  hours?: SessionHours
   notes: string
   paymentProofUrl: string
   paymentProofName?: string
-}): Promise<Appointment> {
-  await assertBookable(input.date, input.time)
+}, options: { override?: boolean; skipPush?: boolean } = {}): Promise<Appointment> {
+  const hours = normalizeHours(input.hours)
+  const times = expandBlock(input.time, hours)
 
-  // Claim the time first. Creating the patient before this point left orphan
+  for (const time of times) {
+    await assertBookable(input.date, time, options)
+  }
+
+  const settings = await getSettings()
+  const session = settings.sessionTypes.find((s) => s.id === input.sessionType)
+  if (!session) throw new Error('Tipo de sesión inválido.')
+  const price = session.priceDop * hours
+
+  // Claim the times first. Creating the patient before this point left orphan
   // records behind whenever the slot turned out to be taken.
   const reference = generateReference()
-  await claimSlot(input.date, input.time)
+  await claimSlots(input.date, times)
+
+  const now = new Date().toISOString()
+  const appointment: Appointment = {
+    id: reference,
+    reference,
+    // Linked to a patient record by the admin panel — see reconcileData().
+    patientId: '',
+    patientName: input.name.trim(),
+    patientPhone: input.phone.trim(),
+    patientEmail: input.email.trim().toLowerCase(),
+    sessionType: input.sessionType,
+    price,
+    date: input.date,
+    time: input.time,
+    hours,
+    times,
+    modality: 'virtual',
+    status: 'pending',
+    notes: input.notes,
+    paymentProofUrl: input.paymentProofUrl,
+    paymentProofName: input.paymentProofName ?? '',
+    createdAt: now,
+    updatedAt: now,
+  }
 
   try {
-    const now = new Date().toISOString()
-
-    const appointment: Appointment = {
-      id: reference,
-      reference,
-      // Linked to a patient record by the admin panel — see reconcileData().
-      patientId: '',
-      patientName: input.name.trim(),
-      patientPhone: input.phone.trim(),
-      patientEmail: input.email.trim().toLowerCase(),
-      sessionType: input.sessionType,
-      price: input.price,
-      date: input.date,
-      time: input.time,
-      modality: 'virtual',
-      status: 'pending',
-      notes: input.notes,
-      paymentProofUrl: input.paymentProofUrl,
-      paymentProofName: input.paymentProofName ?? '',
-      createdAt: now,
-      updatedAt: now,
-    }
-
     if (!isFirebaseConfigured || !db) {
       localDb.saveAppointments([...localDb.getAppointments(), appointment])
     } else {
       await setDoc(doc(db, 'appointments', reference), appointment)
     }
-
-    await createNotification({
-      type: 'appointment_created',
-      appointmentId: appointment.id,
-      message: `Nueva cita pendiente: ${appointment.patientName} — ${appointment.date} ${appointment.time}`,
-    })
-
-    return appointment
   } catch (error) {
-    // Don't leave the time blocked by a booking that never completed.
-    await releaseSlot(input.date, input.time).catch(() => undefined)
+    // Don't leave the times blocked by a booking that never completed.
+    await releaseSlots(input.date, times).catch(() => undefined)
     throw error
   }
+
+  const clock = times.length > 1 ? `${times[0]}–${times[times.length - 1]}` : times[0]
+  await createNotification({
+    type: 'appointment_created',
+    appointmentId: appointment.id,
+    message: `Nueva cita pendiente: ${appointment.patientName} — ${appointment.date} ${clock}`,
+  }).catch(() => undefined)
+
+  if (!options.skipPush) {
+    void notifyPush({ kind: 'appointment', appointmentId: appointment.id })
+  }
+
+  return appointment
 }
 
 /**
@@ -201,7 +258,7 @@ export async function rescheduleAppointment(
   reference: string,
   newDate: string,
   newTime: string,
-  options: { actor: 'patient' | 'admin' },
+  options: { actor: 'patient' | 'admin'; override?: boolean },
 ): Promise<Appointment> {
   const current = await getAppointmentByReference(reference)
   if (!current) throw new Error('No encontramos ninguna cita con ese código')
@@ -215,29 +272,60 @@ export async function rescheduleAppointment(
     throw new Error('Esa cita ya está en ese horario')
   }
 
-  await assertBookable(newDate, newTime)
+  const hours = normalizeHours(current.hours)
+  const oldTimes = appointmentTimes(current)
+  const newTimes = expandBlock(newTime, hours)
+  const override = options.actor === 'admin' && options.override === true
 
-  const oldId = slotId(current.date, current.time)
-  const newId = slotId(newDate, newTime)
+  for (const time of newTimes) {
+    await assertBookable(newDate, time, { override })
+  }
+
+  const oldIds = oldTimes.map((time) => slotId(current.date, time))
+  const newIds = newTimes.map((time) => slotId(newDate, time))
   const taken = new Error('Ese horario ya no está disponible. Elige otra hora.')
+  const now = new Date().toISOString()
 
   const patch = {
     date: newDate,
     time: newTime,
-    updatedAt: new Date().toISOString(),
+    hours,
+    times: newTimes,
+    updatedAt: now,
     rescheduleCount: (current.rescheduleCount ?? 0) + 1,
-    previousSlots: [...(current.previousSlots ?? []), oldId],
+    previousSlots: [...(current.previousSlots ?? []), oldIds[0]],
+    reminderSentAt: deleteField(),
+    attendanceConfirmedAt: deleteField(),
   }
-  const updated: Appointment = { ...current, ...patch }
+  const updated: Appointment = {
+    ...current,
+    date: newDate,
+    time: newTime,
+    hours,
+    times: newTimes,
+    updatedAt: patch.updatedAt,
+    rescheduleCount: patch.rescheduleCount,
+    previousSlots: patch.previousSlots,
+  }
+  delete updated.reminderSentAt
+  delete updated.attendanceConfirmedAt
 
   if (!isFirebaseConfigured || !db) {
     // Demo mode is single-threaded, so the sequence below is already atomic
     // from the app's point of view. Nothing else can interleave.
     const slots = localDb.getSlots()
-    if (slots.some((s) => s.id === newId)) throw taken
+    if (slots.some((s) => newIds.includes(s.id) && !oldIds.includes(s.id))) {
+      throw taken
+    }
+    const kept = slots.filter((s) => !oldIds.includes(s.id))
     localDb.saveSlots([
-      ...slots.filter((s) => s.id !== oldId),
-      { id: newId, date: newDate, time: newTime, createdAt: new Date().toISOString() },
+      ...kept,
+      ...newTimes.map((time) => ({
+        id: slotId(newDate, time),
+        date: newDate,
+        time,
+        createdAt: now,
+      })),
     ])
     localDb.saveAppointments(
       localDb.getAppointments().map((a) => (a.id === current.id ? updated : a)),
@@ -245,35 +333,131 @@ export async function rescheduleAppointment(
   } else {
     const database = db
     await runTransaction(database, async (tx) => {
-      const newRef = doc(database, 'slots', newId)
+      const newRefs = newIds.map((id) => doc(database, 'slots', id))
       const apptRef = doc(database, 'appointments', current.id)
 
       // Every read must happen before any write inside a Firestore transaction.
-      const existing = await tx.get(newRef)
+      const existing = await Promise.all(newRefs.map((ref) => tx.get(ref)))
       const apptSnap = await tx.get(apptRef)
-      if (existing.exists()) throw taken
+      for (let i = 0; i < existing.length; i += 1) {
+        if (existing[i].exists() && !oldIds.includes(newIds[i])) throw taken
+      }
       if (!apptSnap.exists()) throw new Error('Cita no encontrada')
 
-      tx.set(newRef, {
-        id: newId,
-        date: newDate,
-        time: newTime,
-        createdAt: new Date().toISOString(),
-      } satisfies SlotLock)
+      newTimes.forEach((time, i) => {
+        if (existing[i].exists()) return
+        tx.set(newRefs[i], {
+          id: newIds[i],
+          date: newDate,
+          time,
+          createdAt: now,
+        } satisfies SlotLock)
+      })
       tx.update(apptRef, patch)
 
       if (options.actor === 'admin') {
-        tx.delete(doc(database, 'slots', oldId))
+        for (const oldId of oldIds) {
+          if (!newIds.includes(oldId)) {
+            tx.delete(doc(database, 'slots', oldId))
+          }
+        }
       }
     })
   }
 
+  const from = oldTimes.length > 1 ? `${oldTimes[0]}–${oldTimes[oldTimes.length - 1]}` : current.time
+  const to = newTimes.length > 1 ? `${newTimes[0]}–${newTimes[newTimes.length - 1]}` : newTime
   await createNotification({
     type: 'appointment_rescheduled',
     appointmentId: current.id,
-    message: `Cita reprogramada por ${options.actor === 'admin' ? 'ti' : 'el paciente'}: ${updated.patientName} — de ${current.date} ${current.time} a ${newDate} ${newTime}`,
+    message: `Cita reprogramada por ${options.actor === 'admin' ? 'ti' : 'el paciente'}: ${updated.patientName} — de ${current.date} ${from} a ${newDate} ${to}`,
   })
 
+  return updated
+}
+
+export async function confirmAttendance(
+  reference: string,
+): Promise<Appointment> {
+  const current = await getAppointmentByReference(reference)
+  if (!current) throw new Error('No encontramos ninguna cita con ese código')
+  if (current.status !== 'pending' && current.status !== 'confirmed') {
+    throw new Error('Esa cita ya no se puede confirmar')
+  }
+  if (current.attendanceConfirmedAt) return current
+
+  const now = new Date().toISOString()
+  const updated: Appointment = {
+    ...current,
+    attendanceConfirmedAt: now,
+    updatedAt: now,
+  }
+
+  if (!isFirebaseConfigured || !db) {
+    localDb.saveAppointments(
+      localDb.getAppointments().map((a) => (a.id === current.id ? updated : a)),
+    )
+    return updated
+  }
+  await updateDoc(doc(db, 'appointments', current.id), {
+    attendanceConfirmedAt: now,
+    updatedAt: now,
+  })
+  return updated
+}
+
+export async function requestInvoice(
+  reference: string,
+  input: { legalName: string; rncCedula?: string; email?: string },
+): Promise<Appointment> {
+  const current = await getAppointmentByReference(reference)
+  if (!current) throw new Error('No encontramos ninguna cita con ese código')
+  if (current.invoice) return current
+
+  const legalName = input.legalName.trim()
+  if (legalName.length < 2) {
+    throw new Error('Escribe el nombre que debe aparecer en el comprobante')
+  }
+
+  const invoice: InvoiceRequest = {
+    requestedAt: new Date().toISOString(),
+    legalName,
+    rncCedula: (input.rncCedula ?? '').trim(),
+    email: (input.email ?? '').trim().toLowerCase(),
+  }
+  const now = new Date().toISOString()
+  const updated: Appointment = { ...current, invoice, updatedAt: now }
+
+  if (!isFirebaseConfigured || !db) {
+    localDb.saveAppointments(
+      localDb.getAppointments().map((a) => (a.id === current.id ? updated : a)),
+    )
+    return updated
+  }
+  await updateDoc(doc(db, 'appointments', current.id), {
+    invoice,
+    updatedAt: now,
+  })
+  return updated
+}
+
+export async function markReminderSent(id: string): Promise<Appointment> {
+  const current = await getAppointmentByReference(id)
+  if (!current) throw new Error('Cita no encontrada')
+
+  const now = new Date().toISOString()
+  const updated: Appointment = { ...current, reminderSentAt: now, updatedAt: now }
+
+  if (!isFirebaseConfigured || !db) {
+    localDb.saveAppointments(
+      localDb.getAppointments().map((a) => (a.id === current.id ? updated : a)),
+    )
+    return updated
+  }
+  await updateDoc(doc(db, 'appointments', current.id), {
+    reminderSentAt: now,
+    updatedAt: now,
+  })
   return updated
 }
 
@@ -283,16 +467,17 @@ export async function createManualAppointment(input: {
   phone: string
   email: string
   sessionType: Appointment['sessionType']
-  price: number
   date: string
   time: string
+  hours?: SessionHours
   notes: string
+  override?: boolean
 }): Promise<Appointment> {
-  const appointment = await createAppointment({
-    ...input,
-    paymentProofUrl: '',
-    paymentProofName: '',
-  })
+  const { override = false, ...rest } = input
+  const appointment = await createAppointment(
+    { ...rest, paymentProofUrl: '', paymentProofName: '' },
+    { override, skipPush: true },
+  )
   // The admin is signed in here, so the patient record can be linked at once.
   await linkPatient(appointment)
   return updateAppointmentStatus(appointment.id, 'confirmed')
@@ -349,10 +534,10 @@ export async function updateAppointmentStatus(
     updated = { ...(snap.data() as Appointment), id: snap.id }
   }
 
-  // Rejecting or cancelling puts the time back on the calendar; confirming and
-  // completing keep it held.
+  // Rejecting or cancelling puts the times back on the calendar; confirming and
+  // completing keep them held.
   if (!ACTIVE_STATUSES.includes(status)) {
-    await releaseSlot(updated.date, updated.time)
+    await releaseSlots(updated.date, appointmentTimes(updated))
   }
 
   const notification = NOTIFICATION_BY_STATUS[status]
@@ -378,20 +563,26 @@ export async function reconcileData(): Promise<number> {
   const existing = new Set(await listSlotIds())
   let repaired = 0
 
-  const wanted = new Set(active.map((a) => slotId(a.date, a.time)))
+  const wanted = new Set(
+    active.flatMap((a) =>
+      appointmentTimes(a).map((time) => slotId(a.date, time)),
+    ),
+  )
 
   for (const appointment of active) {
-    const id = slotId(appointment.date, appointment.time)
-    if (existing.has(id)) continue
-    existing.add(id)
+    for (const time of appointmentTimes(appointment)) {
+      const id = slotId(appointment.date, time)
+      if (existing.has(id)) continue
+      existing.add(id)
 
-    await writeSlotLock({
-      id,
-      date: appointment.date,
-      time: appointment.time,
-      createdAt: appointment.createdAt,
-    })
-    repaired += 1
+      await writeSlotLock({
+        id,
+        date: appointment.date,
+        time,
+        createdAt: appointment.createdAt,
+      })
+      repaired += 1
+    }
   }
 
   // Locks with no active appointment behind them. A patient reschedule cannot

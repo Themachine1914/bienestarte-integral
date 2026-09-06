@@ -12,6 +12,13 @@ import {
   getBookedSlotsForDate,
   rescheduleAppointment,
 } from '../../services/appointments'
+import {
+  appointmentTimes,
+  expandBlock,
+  formatBlockLabel,
+  normalizeHours,
+  startsForDuration,
+} from '../../lib/time'
 import type { Appointment, AvailabilityConfig } from '../../types'
 
 /** Date and time picker for moving an existing appointment. */
@@ -54,10 +61,18 @@ export function RescheduleForm({
 
   // The hour it holds right now is not an option, and its lock would make it
   // look taken anyway.
+  const hours = normalizeHours(appointment.hours)
+  const ownTimes = date === appointment.date ? appointmentTimes(appointment) : []
   const freeSlots = availability
-    ? getOpenSlots(date, availability, booked).filter(
-        (s) => !(date === appointment.date && s === appointment.time),
-      )
+    ? startsForDuration(
+        hours,
+        getOpenSlots(
+          date,
+          availability,
+          booked.filter((t) => !ownTimes.includes(t)),
+        ),
+        availability.slots,
+      ).filter((s) => !(date === appointment.date && s === appointment.time))
     : []
 
   async function submit() {
@@ -135,7 +150,7 @@ export function RescheduleForm({
                       : 'border-sage-100 bg-white hover:border-sage-200'
                   }`}
                 >
-                  {s}
+                  {formatBlockLabel(expandBlock(s, hours))}
                 </button>
               ))}
             </div>

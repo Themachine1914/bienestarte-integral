@@ -1,5 +1,5 @@
 import type { Appointment } from '../types'
-import { parseTimeSlot } from './time'
+import { blockDurationMinutes, normalizeHours, parseTimeSlot } from './time'
 
 /**
  * The practice runs on Dominican time, which has been a fixed UTC-4 with no
@@ -55,13 +55,14 @@ export function buildIcsContent(
   durationMinutes = 50,
   now: Date = new Date(),
 ): string {
+  const span = blockDurationMinutes(normalizeHours(appointment.hours), durationMinutes)
   const start = localStamp(appointment.date, appointment.time, 0)
-  const end = localStamp(appointment.date, appointment.time, durationMinutes)
+  const end = localStamp(appointment.date, appointment.time, span)
 
   const description = [
     `Paciente: ${appointment.patientName}`,
     `Teléfono: ${appointment.patientPhone}`,
-    `Email: ${appointment.patientEmail}`,
+    appointment.patientEmail ? `Email: ${appointment.patientEmail}` : '',
     `Tipo: ${appointment.sessionType === 'individual' ? 'Individual' : 'Pareja / Familia'}`,
     'Modalidad: Virtual',
     appointment.reference ? `Referencia: ${appointment.reference}` : '',

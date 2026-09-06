@@ -1,5 +1,15 @@
 export type SessionType = 'individual' | 'couple_family'
 
+/** Consecutive practice hours in one booking. 1 is a single cupo. */
+export type SessionHours = 1 | 2 | 3
+
+export interface InvoiceRequest {
+  requestedAt: string
+  legalName: string
+  rncCedula: string
+  email: string
+}
+
 export type AppointmentStatus =
   | 'pending'
   | 'confirmed'
@@ -66,9 +76,20 @@ export interface Appointment {
   patientPhone: string
   patientEmail: string
   sessionType: SessionType
+  /** Total for the whole block: unit price × hours. */
   price: number
   date: string // yyyy-MM-dd
+  /** Start of the block. */
   time: string // HH:mm
+  /**
+   * How many consecutive hours this booking holds. Absent on older
+   * appointments, which means one hour.
+   */
+  hours?: SessionHours
+  /** Every HH:mm in the block, start first. Derived from time+hours if missing. */
+  times?: string[]
+  /** Filled only if the patient asked for a simple service receipt. */
+  invoice?: InvoiceRequest
   modality: 'virtual'
   status: AppointmentStatus
   notes: string
@@ -83,6 +104,10 @@ export interface Appointment {
   rescheduleCount?: number
   /** `${date}_${time}` of every slot this appointment held before, oldest first. */
   previousSlots?: string[]
+  /** When the 24-hour WhatsApp reminder was sent (or opened from the admin). */
+  reminderSentAt?: string
+  /** When the patient confirmed attendance from the reminder link. */
+  attendanceConfirmedAt?: string
 }
 
 export interface AppNotification {
@@ -93,6 +118,7 @@ export interface AppNotification {
     | 'appointment_rejected'
     | 'appointment_cancelled'
     | 'appointment_rescheduled'
+    | 'appointment_reminder'
   appointmentId: string
   message: string
   read: boolean

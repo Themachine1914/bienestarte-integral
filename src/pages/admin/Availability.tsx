@@ -4,10 +4,11 @@ import { X } from 'lucide-react'
 import {
   DEFAULT_AVAILABILITY,
   MAX_SLOTS_PER_DAY,
+  PRACTICE_SLOTS,
   PRACTICE_WEEKDAYS,
 } from '../../lib/defaults'
 import { formatDisplayDate } from '../../lib/dates'
-import { isValidTimeSlot, normalizeSlots } from '../../lib/time'
+import { formatSlotLabel } from '../../lib/time'
 import {
   getAvailability,
   saveAvailability,
@@ -27,7 +28,6 @@ const DAY_LABELS: Record<number, string> = {
 
 export function AvailabilityPage() {
   const [config, setConfig] = useState<AvailabilityConfig>(DEFAULT_AVAILABILITY)
-  const [slotsText, setSlotsText] = useState('')
   const [newBlockedDate, setNewBlockedDate] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -35,7 +35,6 @@ export function AvailabilityPage() {
     getAvailability()
       .then((c) => {
         setConfig(c)
-        setSlotsText(c.slots.join(', '))
       })
       .finally(() => setLoading(false))
   }, [])
@@ -70,30 +69,10 @@ export function AvailabilityPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
 
-    const entries = slotsText.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean)
-    const invalid = entries.filter((s) => !isValidTimeSlot(s))
-    if (invalid.length > 0) {
-      toast.error(
-        `Horario inválido: ${invalid.join(', ')}. Usa HH:mm entre 00:00 y 23:59.`,
-      )
-      return
-    }
-
-    const slots = normalizeSlots(entries)
-    if (slots.length === 0) {
-      toast.error('Agrega al menos un horario (HH:mm)')
-      return
-    }
-    if (slots.length > MAX_SLOTS_PER_DAY) {
-      toast.error(`Máximo ${MAX_SLOTS_PER_DAY} pacientes por día`)
-      return
-    }
-
-    const next: AvailabilityConfig = { ...config, slots }
+    const next: AvailabilityConfig = { ...config, slots: [...PRACTICE_SLOTS] }
     try {
       await saveAvailability(next)
       setConfig(next)
-      setSlotsText(slots.join(', '))
       toast.success('Disponibilidad guardada')
     } catch {
       toast.error('No se pudo guardar')
@@ -153,15 +132,22 @@ export function AvailabilityPage() {
           )}
         </div>
 
-        <label className="block text-sm font-medium text-ink">
-          Horarios (separados por coma, formato HH:mm)
-          <input
-            value={slotsText}
-            onChange={(e) => setSlotsText(e.target.value)}
-            placeholder="09:00, 10:00, 11:00, 12:00, 14:00, 15:00"
-            className="mt-1.5 w-full rounded-lg border border-sage-200 px-3 py-2 text-sm outline-none focus:border-sage-400"
-          />
-        </label>
+        <div>
+          <p className="text-sm font-medium text-ink">Horarios de consulta</p>
+          <p className="mt-1 text-xs text-muted">
+            9:00 AM, 10:00 AM, 11:00 AM, 2:00 PM, 3:00 PM y 4:00 PM.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PRACTICE_SLOTS.map((slot) => (
+              <span
+                key={slot}
+                className="rounded-full bg-sage-500 px-3 py-1.5 text-xs font-medium text-white"
+              >
+                {formatSlotLabel(slot)}
+              </span>
+            ))}
+          </div>
+        </div>
 
         <div>
           <p className="text-sm font-medium text-ink">

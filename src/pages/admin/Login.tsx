@@ -4,18 +4,17 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
 
 export function LoginPage() {
-  const { login, isAdmin, loading, isDemoMode } = useAuth()
+  const { login, isAdmin, loading, isDemoMode, resetPassword } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from
       ?.pathname || '/admin'
 
-  const [email, setEmail] = useState(
-    isDemoMode ? 'admin@bienestarteintegral.com' : '',
-  )
-  const [password, setPassword] = useState(isDemoMode ? 'bienestarte2026' : '')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sendingReset, setSendingReset] = useState(false)
 
   if (!loading && isAdmin) {
     return <Navigate to="/admin" replace />
@@ -32,6 +31,29 @@ export function LoginPage() {
       toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  /**
+   * Always reports success, even for an address with no account. Saying "no
+   * existe" would let anyone use this box to find out who the admin is.
+   */
+  async function handleReset() {
+    if (!email.trim()) {
+      toast.error('Escribe tu correo arriba y vuelve a pulsar')
+      return
+    }
+    setSendingReset(true)
+    try {
+      await resetPassword(email)
+    } catch {
+      // Swallowed on purpose, same reason as above.
+    } finally {
+      setSendingReset(false)
+      toast.success(
+        'Si ese correo tiene cuenta, te llegó un enlace para cambiar la contraseña. Revisa también la carpeta de spam.',
+        { duration: 8000 },
+      )
     }
   }
 
@@ -55,8 +77,9 @@ export function LoginPage() {
 
         {isDemoMode && (
           <p className="mt-4 rounded-lg bg-lavender-50 px-3 py-2 text-xs text-lavender-700">
-            Modo demo: usa las credenciales prellenadas o configura Firebase en
-            `.env`.
+            Modo demo (sin Firebase). Requiere{' '}
+            <code>VITE_DEMO_ADMIN_EMAIL</code> y{' '}
+            <code>VITE_DEMO_ADMIN_PASSWORD</code> en tu <code>.env</code>.
           </p>
         )}
 
@@ -88,6 +111,17 @@ export function LoginPage() {
         >
           {submitting ? 'Entrando…' : 'Entrar'}
         </button>
+
+        {!isDemoMode && (
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={sendingReset}
+            className="mt-4 w-full text-center text-xs text-muted underline underline-offset-2 hover:text-sage-700 disabled:opacity-60"
+          >
+            {sendingReset ? 'Enviando…' : '¿Olvidaste tu contraseña?'}
+          </button>
+        )}
       </form>
     </div>
   )

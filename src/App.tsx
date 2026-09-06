@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { InstallManifest } from './components/InstallManifest'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PublicLayout } from './layouts/PublicLayout'
 import { AdminLayout } from './layouts/AdminLayout'
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <InstallManifest />
         <Routes>
           <Route element={<PublicLayout />}>
             <Route index element={<HomePage />} />

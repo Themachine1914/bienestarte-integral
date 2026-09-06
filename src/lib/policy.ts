@@ -1,4 +1,5 @@
 import type { Appointment } from '../types'
+import { PRACTICE_WHATSAPP_DISPLAY } from './defaults'
 
 /**
  * Rules about what a patient may do to their own appointment.
@@ -117,11 +118,11 @@ export function canPatientReschedule(
 export function rescheduleBlockMessage(reason: RescheduleBlock): string {
   switch (reason) {
     case 'too_late':
-      return `Faltan menos de ${RESCHEDULE_WINDOW_HOURS} horas para tu cita, así que ya no se puede cambiar desde aquí. Escríbele directamente a Orlandia por Instagram con tu código y ella lo resuelve contigo.`
+      return `Faltan menos de ${RESCHEDULE_WINDOW_HOURS} horas para tu cita, así que ya no se puede cambiar desde aquí. Escríbele directamente a Orlandia por WhatsApp al ${PRACTICE_WHATSAPP_DISPLAY} con tu código y ella lo resuelve contigo.`
     case 'limit_reached':
-      return `Ya cambiaste esta cita ${MAX_RESCHEDULES} veces, que es el máximo desde el sitio. Si necesitas moverla otra vez, escríbele directamente a Orlandia por Instagram con tu código.`
+      return `Ya cambiaste esta cita ${MAX_RESCHEDULES} veces, que es el máximo desde el sitio. Si necesitas moverla otra vez, escríbele directamente a Orlandia por WhatsApp al ${PRACTICE_WHATSAPP_DISPLAY} con tu código.`
     case 'not_reschedulable':
-      return 'Esta cita ya no está activa, así que no se puede cambiar. Si crees que es un error, escríbele a Orlandia por Instagram con tu código.'
+      return `Esta cita ya no está activa, así que no se puede cambiar. Si crees que es un error, escríbele a Orlandia por WhatsApp al ${PRACTICE_WHATSAPP_DISPLAY} con tu código.`
     default:
       return ''
   }

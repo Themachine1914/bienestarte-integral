@@ -28,14 +28,9 @@ export function AvailabilityHelp() {
       <div>
         <p className="font-medium text-ink">Horarios</p>
         <p className="mt-1">
-          Escribe las horas separadas por comas, en formato de 24 horas — por
-          ejemplo <code className="text-xs">09:00, 10:00, 14:00</code>. Se
-          ordenan y se limpian solas al guardar.
-        </p>
-        <p className="mt-1">
-          El máximo es de <strong>6 horarios por día</strong>. Si escribes más,
-          el sistema no guarda y te avisa. Estas mismas horas aplican a todos
-          los días que tengas activos.
+          La consulta atiende a las <strong>9:00 AM, 10:00 AM, 11:00 AM,
+          2:00 PM, 3:00 PM y 4:00 PM</strong>. Esas seis horas aplican a todos
+          los días activos y no se editan desde aquí.
         </p>
       </div>
 
@@ -60,6 +55,21 @@ export function AvailabilityHelp() {
         <p className="mt-1">
           Si tu intención era liberar ese día, cancela esas citas una por una
           desde <strong>Citas</strong> y avísale a cada paciente.
+        </p>
+      </div>
+
+      <div>
+        <p className="font-medium text-ink">Esta página no te limita a ti</p>
+        <p className="mt-1">
+          Todo lo de arriba decide lo que ve el paciente. Tú puedes agendar
+          igual donde quieras: en <strong>Citas</strong> → <strong>Nueva
+          cita</strong>, marcando <strong>Fuera del horario habitual</strong>,
+          escribes cualquier día y cualquier hora — un viernes, las 7 de la
+          mañana, o una fecha que bloqueaste aquí.
+        </p>
+        <p className="mt-1">
+          Así que no vengas a esta página solo para meter una cita suelta. Esto
+          es para abrir o cerrar horarios <strong>a todo el mundo</strong>.
         </p>
       </div>
 

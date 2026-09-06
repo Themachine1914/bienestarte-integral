@@ -3,15 +3,23 @@ import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Search } from 'lucide-react'
 import { formatCurrencyDop, formatDisplayDate } from '../../lib/dates'
+import { formatAppointmentClock, hoursLabel, normalizeHours } from '../../lib/time'
 import {
   canPatientReschedule,
   MAX_RESCHEDULES,
   rescheduleBlockMessage,
 } from '../../lib/policy'
-import { getAppointmentByReference } from '../../services/appointments'
+import {
+  confirmAttendance,
+  getAppointmentByReference,
+} from '../../services/appointments'
+import { EnablePush } from '../../components/EnablePush'
+import { ReceiptRequest } from '../../components/ReceiptRequest'
 import { StatusBadge } from '../../components/StatusBadge'
+import { WhatsAppLink } from '../../components/WhatsAppLink'
+import { getSettings } from '../../services/settings'
 import { RescheduleForm } from './RescheduleForm'
-import type { Appointment } from '../../types'
+import type { Appointment, AppSettings } from '../../types'
 
 export function MyAppointmentsPage() {
   const location = useLocation()
@@ -23,27 +31,46 @@ export function MyAppointmentsPage() {
   const [searched, setSearched] = useState(false)
   const [result, setResult] = useState<Appointment | null>(null)
   const [editing, setEditing] = useState(false)
+  const [settings, setSettings] = useState<AppSettings | null>(null)
 
-  async function lookup(code: string) {
+  useEffect(() => {
+    getSettings().then(setSettings)
+  }, [])
+
+  async function lookup(code: string, confirm = false) {
     setLoading(true)
     try {
       const found = await getAppointmentByReference(code)
-      setResult(found)
       setEditing(false)
       setSearched(true)
-      if (!found) toast('No encontramos ninguna cita con ese código')
+      if (!found) {
+        setResult(null)
+        toast('No encontramos ninguna cita con ese código')
+        return
+      }
+      setResult(found)
+      if (confirm) {
+        const confirmed = await confirmAttendance(code)
+        setResult(confirmed)
+        toast.success('Asistencia confirmada. Te esperamos.')
+      }
     } catch {
-      toast.error('Error al buscar la cita')
+      toast.error(confirm ? 'No se pudo confirmar la asistencia' : 'Error al buscar la cita')
     } finally {
       setLoading(false)
     }
   }
 
-  // Coming straight from the booking flow, the code is already known.
+  // Coming straight from the booking flow or from a WhatsApp reminder link.
   useEffect(() => {
-    if (passedReference) lookup(passedReference)
+    const params = new URLSearchParams(location.search)
+    const fromQuery = params.get('codigo') ?? ''
+    const code = passedReference || fromQuery
+    if (!code) return
+    setReference(code)
+    lookup(code, params.get('confirmar') === '1')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passedReference])
+  }, [passedReference, location.search])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,8 +109,8 @@ export function MyAppointmentsPage() {
 
       {searched && !result && (
         <p className="mt-8 text-sm text-muted">
-          Sin resultados. Revisa el código, o escríbele a Orlandia por Instagram
-          si lo perdiste — ella puede consultarlo por ti.
+          Sin resultados. Revisa el código, o escríbele a Orlandia por WhatsApp
+          al <WhatsAppLink /> si lo perdiste — ella puede consultarlo por ti.
         </p>
       )}
 
@@ -92,17 +119,23 @@ export function MyAppointmentsPage() {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="font-medium text-ink">
-                {formatDisplayDate(result.date)} · {result.time}
+                {formatDisplayDate(result.date)} · {formatAppointmentClock(result)}
               </p>
               <p className="text-sm text-muted">
                 {result.sessionType === 'individual'
                   ? 'Individual'
                   : 'Pareja / Familia'}{' '}
-                · {formatCurrencyDop(result.price)} · Virtual
+                · {hoursLabel(normalizeHours(result.hours))} ·{' '}
+                {formatCurrencyDop(result.price)} · Virtual
               </p>
               <p className="mt-2 text-xs text-muted">
                 Código: {result.reference}
               </p>
+              {result.attendanceConfirmedAt && (
+                <p className="mt-2 text-sm font-medium text-sage-700">
+                  Asistencia confirmada. Te esperamos.
+                </p>
+              )}
             </div>
             <StatusBadge status={result.status} />
           </div>
@@ -117,6 +150,14 @@ export function MyAppointmentsPage() {
               setEditing(false)
             }}
           />
+          {settings && (
+            <ReceiptRequest
+              appointment={result}
+              settings={settings}
+              onUpdated={setResult}
+            />
+          )}
+          <EnablePush audience="patient" appointmentId={result.id} compact />
         </article>
       )}
     </div>
@@ -157,8 +198,29 @@ function PatientActions({
     )
   }
 
+  async function confirmHere() {
+    try {
+      const updated = await confirmAttendance(appointment.reference)
+      onRescheduled(updated)
+      toast.success('Asistencia confirmada. Te esperamos.')
+    } catch {
+      toast.error('No se pudo confirmar la asistencia')
+    }
+  }
+
   return (
     <div className="mt-5 border-t border-sage-100 pt-4">
+      {!appointment.attendanceConfirmedAt &&
+        (appointment.status === 'pending' ||
+          appointment.status === 'confirmed') && (
+          <button
+            type="button"
+            onClick={confirmHere}
+            className="mb-3 rounded-full bg-sage-500 px-4 py-2 text-sm font-medium text-white hover:bg-sage-600"
+          >
+            Confirmar asistencia
+          </button>
+        )}
       {verdict.allowed ? (
         <>
           <button
@@ -183,7 +245,8 @@ function PatientActions({
 
       <p className="mt-3 text-xs text-muted">
         ¿Necesitas cancelar? No se puede hacer desde el sitio. Escríbele a
-        Orlandia por Instagram con tu código y ella la cancela por ti.
+        Orlandia por WhatsApp al <WhatsAppLink /> con tu código y ella la
+        cancela por ti.
       </p>
     </div>
   )

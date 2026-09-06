@@ -1,13 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { CalendarClock, CalendarPlus, Check, Plus, Undo2, X } from 'lucide-react'
+import {
+  CalendarClock,
+  CalendarPlus,
+  Check,
+  MessageCircle,
+  Plus,
+  Undo2,
+  X,
+} from 'lucide-react'
 import { formatCurrencyDop, formatDisplayDate } from '../../lib/dates'
+import { formatAppointmentClock, hoursLabel, normalizeHours } from '../../lib/time'
 import { downloadIcs } from '../../lib/ics'
+import { auth } from '../../lib/firebase'
+import { notifyPush } from '../../lib/push'
+import {
+  confirmUrlFor,
+  reminderMessage,
+  whatsappHref,
+} from '../../lib/reminders'
 import {
   listAppointments,
+  markReminderSent,
   reconcileData,
   updateAppointmentStatus,
 } from '../../services/appointments'
+import { createNotification } from '../../services/notifications'
 import { StatusBadge } from '../../components/StatusBadge'
 import { NewAppointmentForm } from './NewAppointmentForm'
 import { AppointmentsHelp } from './AppointmentsHelp'
@@ -58,6 +76,30 @@ export function AppointmentsPage() {
         : appointments.filter((a) => a.status === filter),
     [appointments, filter],
   )
+
+  async function sendWhatsAppReminder(a: Appointment) {
+    const text = reminderMessage(
+      a,
+      confirmUrlFor(a.reference, window.location.origin),
+    )
+    window.open(whatsappHref(a.patientPhone, text), '_blank', 'noopener,noreferrer')
+    try {
+      await markReminderSent(a.id)
+      const idToken = await auth?.currentUser?.getIdToken()
+      await notifyPush({ kind: 'reminder', appointmentId: a.id, idToken })
+      await createNotification({
+        type: 'appointment_reminder',
+        appointmentId: a.id,
+        message: `Recordatorio enviado a ${a.patientName}`,
+      }).catch(() => undefined)
+      toast.success(
+        'WhatsApp abierto. Si el paciente activó avisos, también le llega al celular.',
+      )
+      await reload()
+    } catch {
+      toast.error('Se abrió WhatsApp, pero no se pudo marcar el recordatorio')
+    }
+  }
 
   async function setStatus(id: string, status: AppointmentStatus) {
     if (
@@ -139,15 +181,26 @@ export function AppointmentsPage() {
                 <div>
                   <p className="font-medium text-ink">{a.patientName}</p>
                   <p className="text-sm text-muted">
-                    {a.patientEmail} · {a.patientPhone}
+                    {a.patientEmail ? `${a.patientEmail} · ` : ''}
+                    {a.patientPhone}
                   </p>
                   <p className="mt-1 text-sm text-ink">
-                    {formatDisplayDate(a.date)} · {a.time} ·{' '}
+                    {formatDisplayDate(a.date)} · {formatAppointmentClock(a)}
+                    {normalizeHours(a.hours) > 1
+                      ? ` · ${hoursLabel(normalizeHours(a.hours))}`
+                      : ''}{' '}
+                    ·{' '}
                     {a.sessionType === 'individual'
                       ? 'Individual'
                       : 'Pareja / Familia'}{' '}
                     · {formatCurrencyDop(a.price)}
                   </p>
+                  {a.invoice && (
+                    <p className="mt-2 text-xs text-sage-700">
+                      Comprobante pedido: {a.invoice.legalName}
+                      {a.invoice.rncCedula ? ` · ${a.invoice.rncCedula}` : ''}
+                    </p>
+                  )}
                   {a.notes && (
                     <p className="mt-2 text-sm text-muted">Notas: {a.notes}</p>
                   )}
@@ -157,6 +210,16 @@ export function AppointmentsPage() {
                       <span className="font-medium text-sage-700">
                         {a.reference}
                       </span>
+                    </p>
+                  )}
+                  {a.reminderSentAt && (
+                    <p className="mt-1 text-xs text-sage-700">
+                      Recordatorio WhatsApp enviado
+                    </p>
+                  )}
+                  {a.attendanceConfirmedAt && (
+                    <p className="mt-1 text-xs font-medium text-sage-700">
+                      El paciente confirmó asistencia
                     </p>
                   )}
                 </div>
@@ -220,6 +283,20 @@ export function AppointmentsPage() {
                     </button>
                   </>
                 )}
+
+                {(a.status === 'pending' || a.status === 'confirmed') &&
+                  a.patientPhone && (
+                    <button
+                      type="button"
+                      onClick={() => sendWhatsAppReminder(a)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-sage-200 px-3 py-1.5 text-xs font-medium text-sage-700"
+                    >
+                      <MessageCircle size={14} />{' '}
+                      {a.reminderSentAt
+                        ? 'Reenviar WhatsApp'
+                        : 'Recordatorio WhatsApp'}
+                    </button>
+                  )}
 
                 {(a.status === 'pending' || a.status === 'confirmed') && (
                   <button
