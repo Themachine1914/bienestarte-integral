@@ -28,6 +28,9 @@ let storage: FirebaseStorage | null = null
 if (hasValidConfig) {
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
+  // Password-reset and other Auth emails go out in Spanish so they
+  // look like they belong to the practice, not a random English blast.
+  auth.languageCode = 'es'
   db = getFirestore(app)
   storage = getStorage(app)
 }

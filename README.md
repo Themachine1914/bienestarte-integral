@@ -26,10 +26,12 @@ Abre `http://localhost:5173`.
 
 Los datos se guardan en `localStorage` del navegador hasta que configures Firebase.
 
+Si olvida la clave en producción: `/admin/login` → **¿Olvidaste tu contraseña?** → `/admin/recuperar`. El correo lo manda Firebase (en español) y, si configuraste `RESEND_API_KEY`, una copia con el sello de la práctica. Añade `bienestarteintegral.com` en Firebase Console → Authentication → Settings → Authorized domains para que el enlace abra esta misma página.
+
 ## Configurar Firebase
 
 1. Crea un proyecto en [Firebase Console](https://console.firebase.google.com).
-2. Activa **Authentication** → Email/Password y crea el usuario admin.
+2. Activa **Authentication** → Email/Password y crea el usuario admin. En **Settings → Authorized domains** agrega el dominio del sitio (`bienestarteintegral.com`); si falta, el enlace de recuperar clave no puede devolverla al panel.
 3. Crea **Firestore** y **Storage**.
 4. Copia `.env.example` a `.env` y pega las claves web:
 

@@ -1,20 +1,28 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import toast, { Toaster } from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
+import { authErrorMessage } from '../../lib/authErrors'
 
 export function LoginPage() {
-  const { login, isAdmin, loading, isDemoMode, resetPassword } = useAuth()
+  const { login, isAdmin, loading, isDemoMode } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from
       ?.pathname || '/admin'
 
+  const params = new URLSearchParams(location.search)
+  const oobCode = params.get('oobCode')
+  const mode = params.get('mode')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [sendingReset, setSendingReset] = useState(false)
+
+  if (oobCode && mode === 'resetPassword') {
+    return <Navigate to={`/admin/recuperar?${params.toString()}`} replace />
+  }
 
   if (!loading && isAdmin) {
     return <Navigate to="/admin" replace />
@@ -28,37 +36,24 @@ export function LoginPage() {
       toast.success('Bienvenida')
       navigate(from, { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al iniciar sesión')
+      toast.error(
+        authErrorMessage(
+          err,
+          err instanceof Error ? err.message : 'Error al iniciar sesión',
+        ),
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
-  /**
-   * Always reports success, even for an address with no account. Saying "no
-   * existe" would let anyone use this box to find out who the admin is.
-   */
-  async function handleReset() {
-    if (!email.trim()) {
-      toast.error('Escribe tu correo arriba y vuelve a pulsar')
-      return
-    }
-    setSendingReset(true)
-    try {
-      await resetPassword(email)
-    } catch {
-      // Swallowed on purpose, same reason as above.
-    } finally {
-      setSendingReset(false)
-      toast.success(
-        'Si ese correo tiene cuenta, te llegó un enlace para cambiar la contraseña. Revisa también la carpeta de spam.',
-        { duration: 8000 },
-      )
-    }
-  }
+  const recoverTo = email.trim()
+    ? `/admin/recuperar?email=${encodeURIComponent(email.trim())}`
+    : '/admin/recuperar'
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-cream-100 via-sage-50 to-lavender-50 px-4">
+      <Toaster position="top-center" />
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-md border border-sage-100 bg-white p-8 shadow-sm"
@@ -88,6 +83,7 @@ export function LoginPage() {
           <input
             type="email"
             required
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="mt-1.5 w-full rounded-lg border border-sage-200 px-3 py-2 outline-none focus:border-sage-400"
@@ -98,6 +94,7 @@ export function LoginPage() {
           <input
             type="password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="mt-1.5 w-full rounded-lg border border-sage-200 px-3 py-2 outline-none focus:border-sage-400"
@@ -112,16 +109,12 @@ export function LoginPage() {
           {submitting ? 'Entrando…' : 'Entrar'}
         </button>
 
-        {!isDemoMode && (
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={sendingReset}
-            className="mt-4 w-full text-center text-xs text-muted underline underline-offset-2 hover:text-sage-700 disabled:opacity-60"
-          >
-            {sendingReset ? 'Enviando…' : '¿Olvidaste tu contraseña?'}
-          </button>
-        )}
+        <Link
+          to={recoverTo}
+          className="mt-4 block w-full text-center text-xs text-muted underline underline-offset-2 hover:text-sage-700"
+        >
+          ¿Olvidaste tu contraseña?
+        </Link>
       </form>
     </div>
   )

@@ -10,6 +10,7 @@ import { ServicesPage } from './pages/public/Services'
 import { BookPage } from './pages/public/Book'
 import { MyAppointmentsPage } from './pages/public/MyAppointments'
 import { LoginPage } from './pages/admin/Login'
+import { RecoverPasswordPage } from './pages/admin/RecoverPassword'
 import { DashboardPage } from './pages/admin/Dashboard'
 import { AppointmentsPage } from './pages/admin/Appointments'
 import { PatientsPage } from './pages/admin/Patients'
@@ -31,6 +32,7 @@ export default function App() {
           </Route>
 
           <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/admin/recuperar" element={<RecoverPasswordPage />} />
 
           <Route
             path="/admin"
