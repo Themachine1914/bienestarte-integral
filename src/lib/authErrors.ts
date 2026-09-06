@@ -25,7 +25,7 @@ export function authErrorMessage(err: unknown, fallback: string): string {
     case 'auth/user-disabled':
       return 'Esta cuenta está desactivada.'
     case 'No disponible sin conexión al servidor':
-      return code
+      return 'No hay conexión con el servidor para comprobar este enlace. Pide uno nuevo en un momento.'
     default:
       return fallback
   }

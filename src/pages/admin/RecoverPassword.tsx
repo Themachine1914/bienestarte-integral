@@ -96,8 +96,9 @@ function RequestResetForm({
         Recuperar clave
       </h1>
       <p className="mt-2 text-center text-sm text-muted">
-        Te enviamos un correo con un enlace para elegir una clave nueva. Revisa
-        también la carpeta de spam.
+        Escribe el correo con el que entras al panel. Al pulsar el botón te
+        llega un enlace para elegir una clave nueva. Revisa también la carpeta
+        de spam.
       </p>
 
       {status === 'sent' ? (
