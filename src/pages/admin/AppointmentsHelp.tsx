@@ -174,9 +174,10 @@ export function AppointmentsHelp() {
           Cada cambio que hace un paciente aparece en{' '}
           <strong>Novedades</strong>, en el Dashboard. Si activaste avisos en
           este celular (abajo del panel), una cita nueva también te llega
-          aunque tengas la app cerrada. El sitio no envía correos: el aviso al
-          paciente sale por WhatsApp cuando tú lo mandas, y por notificación
-          si él activó avisos.
+          aunque tengas la app cerrada. A los pacientes no se les manda
+          correo: el aviso sale por WhatsApp cuando tú lo mandas, y por
+          notificación si él activó avisos. El único correo que sí sale es
+          el de <strong>recuperar tu clave</strong>, desde el acceso admin.
         </p>
       </div>
 

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { DEFAULT_SETTINGS } from '../../lib/defaults'
 import { getSettings, saveSettings } from '../../services/settings'
 import type { AppSettings } from '../../types'
+import { SettingsHelp } from './SettingsHelp'
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
@@ -32,6 +33,10 @@ export function SettingsPage() {
       <p className="mt-1 text-sm text-muted">
         Precios, datos de transferencia y perfil profesional
       </p>
+
+      <div className="mt-6 max-w-2xl">
+        <SettingsHelp />
+      </div>
 
       <form onSubmit={handleSave} className="mt-8 max-w-2xl space-y-8">
         <section className="space-y-3">

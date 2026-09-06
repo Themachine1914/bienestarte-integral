@@ -100,6 +100,11 @@ function RequestResetForm({
         llega un enlace para elegir una clave nueva. Revisa también la carpeta
         de spam.
       </p>
+      <ol className="mt-4 list-decimal space-y-1 pl-5 text-left text-xs text-muted">
+        <li>Usa el mismo correo de siempre, no otro.</li>
+        <li>Pulsa Enviar enlace y abre el correo (y spam).</li>
+        <li>En el enlace eliges la clave nueva y vuelves a entrar.</li>
+      </ol>
 
       {status === 'sent' ? (
         <div className="mt-6 rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-sm text-sage-800">
