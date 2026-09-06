@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Descargar tutorial de agendas y citas</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Georgia, "Times New Roman", serif;
+        background: #f4efe6;
+        color: #2f3a2e;
+      }
+      main {
+        max-width: 36rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      h1 {
+        font-size: 1.8rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: #5c6759;
+        line-height: 1.5;
+      }
+      a.btn {
+        display: inline-block;
+        margin: 0.4rem 0.3rem;
+        padding: 0.85rem 1.4rem;
+        border-radius: 999px;
+        text-decoration: none;
+        font-family: system-ui, sans-serif;
+        font-weight: 650;
+      }
+      a.primary {
+        background: #6b8f71;
+        color: #fff;
+      }
+      a.secondary {
+        background: #fff;
+        color: #3d4a3a;
+        border: 1px solid #c9d4c4;
+      }
+      video {
+        width: 100%;
+        margin-top: 1.5rem;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Tutorial de agendas y citas</h1>
+      <p>
+        2 minutos con audio en español: 1 minuto de la página de agendar y
+        1 minuto del panel de la psicóloga.
+      </p>
+      <p>
+        <a
+          class="btn primary"
+          href="tutorial-agendas-y-citas.mp4"
+          download="tutorial-agendas-y-citas.mp4"
+        >
+          Descargar video (MP4)
+        </a>
+        <a
+          class="btn secondary"
+          href="narracion-agendas-y-citas.mp3"
+          download="narracion-agendas-y-citas.mp3"
+        >
+          Descargar solo audio (MP3)
+        </a>
+      </p>
+      <video src="tutorial-agendas-y-citas.mp4" controls playsinline></video>
+    </main>
+  </body>
+</html>
