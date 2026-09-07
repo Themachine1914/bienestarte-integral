@@ -112,7 +112,7 @@ ningún correo al paciente ni a la psicóloga.
 2. Framework preset: Vite.
 3. Añade las variables `VITE_FIREBASE_*` y `SITE_URL` (`https://bienestarteintegral.com`) en el proyecto. El rewrite SPA y `/api/reset-password` ya están en `vercel.json`.
 4. En Firebase Console → Authentication: Email/Password activo, y el dominio del sitio en **Authorized domains**. Sin eso el correo de recuperar clave no puede devolverla al panel.
-5. Opcional, para una copia del correo con el nombre de la práctica: `RESEND_API_KEY`, `RESEND_FROM` y `FIREBASE_SERVICE_ACCOUNT` (esta última ya se usa en recordatorios).
+5. El correo de recuperar clave lo manda Firebase Auth en español (`/api/reset-password`). No uses `firebase-admin/auth` en esa función: en Vercel se cae.
 
 Un push a `main` publica en producción. El panel de recuperar clave queda en `https://bienestarteintegral.com/admin/recuperar`.
 
