@@ -120,6 +120,17 @@ export function AppointmentsHelp() {
       </div>
 
       <div>
+        <p className="font-medium text-ink">Volver a agendar a un paciente</p>
+        <p className="mt-1">
+          Si el paciente ya vino antes, es más rápido hacerlo desde{' '}
+          <strong>Pacientes</strong>: abres su expediente, pulsas{' '}
+          <strong>Agendar nueva cita</strong> y sus datos ya vienen llenos. Al
+          terminar puedes mandarle el comprobante por WhatsApp o correo desde
+          ahí mismo.
+        </p>
+      </div>
+
+      <div>
         <p className="font-medium text-ink">Reprogramar una cita</p>
         <p className="mt-1">
           El botón <strong>Reprogramar</strong> aparece en las citas pendientes

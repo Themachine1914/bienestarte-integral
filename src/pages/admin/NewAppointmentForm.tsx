@@ -19,14 +19,31 @@ import {
   hoursLabel,
   startsForDuration,
 } from '../../lib/time'
-import type { AvailabilityConfig, SessionHours, SessionType } from '../../types'
+import type {
+  Appointment,
+  AvailabilityConfig,
+  Patient,
+  SessionHours,
+  SessionType,
+} from '../../types'
 
 /**
  * Booking on behalf of a patient who called instead of using the site. The
  * appointment goes straight to confirmed — the payment was arranged off-site,
  * so there is no proof to review.
+ *
+ * Opened from a patient record, it starts with that patient's details and
+ * the kind of session they usually book.
  */
-export function NewAppointmentForm({ onCreated }: { onCreated: () => void }) {
+export function NewAppointmentForm({
+  onCreated,
+  patient,
+  defaultSessionType = 'individual',
+}: {
+  onCreated: (appointment: Appointment) => void
+  patient?: Pick<Patient, 'name' | 'phone' | 'email'>
+  defaultSessionType?: SessionType
+}) {
   const { settings } = useSettings()
   const [availability, setAvailability] = useState<AvailabilityConfig | null>(
     null,
@@ -34,14 +51,14 @@ export function NewAppointmentForm({ onCreated }: { onCreated: () => void }) {
   const [booked, setBooked] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
-  const [sessionType, setSessionType] = useState<SessionType>('individual')
+  const [sessionType, setSessionType] = useState<SessionType>(defaultSessionType)
   const [hours, setHours] = useState<SessionHours>(1)
   const [offGrid, setOffGrid] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
+  const [name, setName] = useState(patient?.name ?? '')
+  const [phone, setPhone] = useState(patient?.phone ?? '')
+  const [email, setEmail] = useState(patient?.email ?? '')
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -72,9 +89,9 @@ export function NewAppointmentForm({ onCreated }: { onCreated: () => void }) {
     setDate('')
     setTime('')
     setHours(1)
-    setName('')
-    setPhone('')
-    setEmail('')
+    setName(patient?.name ?? '')
+    setPhone(patient?.phone ?? '')
+    setEmail(patient?.email ?? '')
     setNotes('')
   }
 
@@ -96,7 +113,7 @@ export function NewAppointmentForm({ onCreated }: { onCreated: () => void }) {
 
     setSaving(true)
     try {
-      await createManualAppointment({
+      const created = await createManualAppointment({
         name,
         phone,
         email,
@@ -109,7 +126,7 @@ export function NewAppointmentForm({ onCreated }: { onCreated: () => void }) {
       })
       toast.success('Cita creada y confirmada')
       reset()
-      onCreated()
+      onCreated(created)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se pudo crear')
     } finally {

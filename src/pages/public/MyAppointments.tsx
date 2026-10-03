@@ -15,6 +15,7 @@ import {
 } from '../../services/appointments'
 import { EnablePush } from '../../components/EnablePush'
 import { ReceiptRequest } from '../../components/ReceiptRequest'
+import { ReceiptSheet } from '../../components/ReceiptSheet'
 import { StatusBadge } from '../../components/StatusBadge'
 import { WhatsAppLink } from '../../components/WhatsAppLink'
 import { getSettings } from '../../services/settings'
@@ -32,6 +33,8 @@ export function MyAppointmentsPage() {
   const [result, setResult] = useState<Appointment | null>(null)
   const [editing, setEditing] = useState(false)
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  // Set when the patient arrives from the receipt link Orlandia sent.
+  const [showReceipt, setShowReceipt] = useState(false)
 
   useEffect(() => {
     getSettings().then(setSettings)
@@ -68,6 +71,7 @@ export function MyAppointmentsPage() {
     const code = passedReference || fromQuery
     if (!code) return
     setReference(code)
+    setShowReceipt(params.get('comprobante') === '1')
     lookup(code, params.get('confirmar') === '1')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passedReference, location.search])
@@ -78,6 +82,7 @@ export function MyAppointmentsPage() {
       toast.error('Ingresa tu código de seguimiento')
       return
     }
+    setShowReceipt(false)
     await lookup(reference)
   }
 
@@ -150,7 +155,10 @@ export function MyAppointmentsPage() {
               setEditing(false)
             }}
           />
-          {settings && (
+          {settings && showReceipt && !result.invoice && (
+            <ReceiptSheet appointment={result} settings={settings} />
+          )}
+          {settings && !(showReceipt && !result.invoice) && (
             <ReceiptRequest
               appointment={result}
               settings={settings}

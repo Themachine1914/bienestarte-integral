@@ -113,10 +113,13 @@ export function printReceipt(
 </body>
 </html>`
 
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=720,height=900')
+  // No `noopener` here: with it, window.open returns null and there is no
+  // document to write into. The link back is cut right after instead.
+  const popup = window.open('', '_blank', 'width=720,height=900')
   if (!popup) {
     throw new Error('Permite ventanas emergentes para ver el comprobante')
   }
+  popup.opener = null
   popup.document.write(html)
   popup.document.close()
 }

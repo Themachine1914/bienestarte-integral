@@ -72,3 +72,34 @@ export function rescheduleNoticeMessage(
 export function whatsappHref(phone: string, text: string): string {
   return `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(text)}`
 }
+
+export function receiptUrlFor(reference: string, siteUrl: string): string {
+  return `${lookupUrlFor(reference, siteUrl)}&comprobante=1`
+}
+
+/**
+ * Sent by Orlandia from the patient record. A future session reads as a
+ * confirmation; a past one as the receipt for what already happened.
+ */
+export function receiptMessage(
+  appointment: Appointment,
+  receiptUrl: string,
+  now: Date = new Date(),
+): string {
+  const when = `${formatDisplayDate(appointment.date)} a las ${formatAppointmentClock(appointment)}`
+  const upcoming =
+    appointment.status === 'confirmed' &&
+    appointment.date >= practiceDateKey(now)
+  return [
+    `Hola ${appointment.patientName.trim() || 'buenas'},`,
+    upcoming
+      ? `tu sesión con Orlandia (virtual) quedó confirmada para el ${when}.`
+      : `te comparto el comprobante de tu sesión del ${when} con Orlandia (virtual).`,
+    `Aquí puedes ver, imprimir o guardar tu comprobante: ${receiptUrl}`,
+    `Tu código de seguimiento es ${appointment.reference}.`,
+  ].join(' ')
+}
+
+export function mailtoHref(email: string, subject: string, body: string): string {
+  return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}

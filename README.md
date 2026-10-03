@@ -58,6 +58,7 @@ firebase deploy --only firestore:rules,storage
 - Al confirmar se descarga un archivo `.ics` para el calendario del iPhone.
 - El paciente puede **reprogramar** su cita desde `/mis-citas` con su código, hasta 24 horas antes y como máximo 2 veces. **Cancelar nunca**: la interfaz siempre lo remite a contactar a la psicóloga.
 - La psicóloga puede cancelar y reprogramar cualquier cita desde el panel, **sin la ventana de 24 horas**.
+- **Pacientes** (`/admin/pacientes`): expediente por paciente con resumen (sesiones realizadas, próximas, canceladas, total facturado) e historial. Desde ahí se agenda una cita nueva con sus datos ya llenos y se le envía el comprobante por WhatsApp o correo: el mensaje lleva un enlace a `/mis-citas?codigo=…&comprobante=1`, que muestra el comprobante listo para imprimir o guardar en PDF. Nada se envía automáticamente.
 
 ## Cómo funciona el bloqueo de cupos
 
