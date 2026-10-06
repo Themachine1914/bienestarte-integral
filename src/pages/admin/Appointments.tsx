@@ -55,18 +55,34 @@ export function AppointmentsPage() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [movingId, setMovingId] = useState<string | null>(null)
+  const [cancelAskId, setCancelAskId] = useState<string | null>(null)
 
-  async function reload() {
-    setAppointments(await listAppointments())
+  function replaceAppointment(next: Appointment) {
+    setAppointments((list) => {
+      const rest = list.filter((item) => item.id !== next.id)
+      return [next, ...rest].sort((a, b) =>
+        `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`),
+      )
+    })
   }
 
   useEffect(() => {
-    // Bookings made before slots were tracked separately have no lock yet;
-    // without this their times would look free to new patients.
-    reconcileData()
-      .then(reload)
-      .catch(() => reload())
-      .finally(() => setLoading(false))
+    // Show the agenda immediately. Slot locks for older bookings are repaired
+    // afterwards; waiting on that scan is what made the page feel stuck.
+    let active = true
+    listAppointments()
+      .then((list) => {
+        if (!active) return
+        setAppointments(list)
+        void reconcileData(list).catch(() => undefined)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   const filtered = useMemo(
@@ -84,25 +100,41 @@ export function AppointmentsPage() {
     )
     window.open(whatsappHref(a.patientPhone, text), '_blank', 'noopener,noreferrer')
     try {
-      await markReminderSent(a.id)
-      const idToken = await auth?.currentUser?.getIdToken()
-      await notifyPush({ kind: 'reminder', appointmentId: a.id, idToken })
-      await createNotification({
-        type: 'appointment_reminder',
-        appointmentId: a.id,
-        message: `Recordatorio enviado a ${a.patientName}`,
-      }).catch(() => undefined)
+      const updated = await markReminderSent(a.id, a)
+      replaceAppointment(updated)
       toast.success(
         'WhatsApp abierto. Si el paciente activó avisos, también le llega al celular.',
       )
-      await reload()
     } catch {
       toast.error('Se abrió WhatsApp, pero no se pudo marcar el recordatorio')
+      return
     }
+    const idToken = await auth?.currentUser?.getIdToken()
+    void notifyPush({ kind: 'reminder', appointmentId: a.id, idToken })
+    void createNotification({
+      type: 'appointment_reminder',
+      appointmentId: a.id,
+      message: `Recordatorio enviado a ${a.patientName}`,
+    }).catch(() => undefined)
   }
 
-  async function setStatus(id: string, status: AppointmentStatus) {
+  function askAboutCancel(appointment: Appointment) {
+    setMovingId((id) => (id === appointment.id ? null : id))
+    setCancelAskId((id) => (id === appointment.id ? null : appointment.id))
+  }
+
+  function rescheduleInstead(appointment: Appointment) {
+    setCancelAskId(null)
+    setMovingId(appointment.id)
+  }
+
+  async function setStatus(
+    appointment: Appointment,
+    status: AppointmentStatus,
+    skipConfirm = false,
+  ) {
     if (
+      !skipConfirm &&
       (status === 'cancelled' || status === 'rejected') &&
       !window.confirm(
         `¿Seguro que quieres ${status === 'cancelled' ? 'cancelar' : 'rechazar'} esta cita? El cupo volverá a quedar disponible.`,
@@ -110,12 +142,17 @@ export function AppointmentsPage() {
     ) {
       return
     }
+    if (status === 'cancelled') setCancelAskId(null)
 
     try {
-      const updated = await updateAppointmentStatus(id, status)
+      const updated = await updateAppointmentStatus(
+        appointment.id,
+        status,
+        appointment,
+      )
       if (status === 'confirmed') downloadIcs(updated)
       toast.success(TOASTS[status])
-      await reload()
+      replaceAppointment(updated)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al actualizar')
     }
@@ -147,9 +184,9 @@ export function AppointmentsPage() {
 
       {showNew && (
         <NewAppointmentForm
-          onCreated={() => {
+          onCreated={(created) => {
             setShowNew(false)
-            reload()
+            replaceAppointment(created)
           }}
         />
       )}
@@ -243,14 +280,14 @@ export function AppointmentsPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() => setStatus(a.id, 'confirmed')}
+                      onClick={() => setStatus(a, 'confirmed')}
                       className="inline-flex items-center gap-1 rounded-lg bg-sage-500 px-3 py-1.5 text-xs font-semibold text-white"
                     >
                       <Check size={14} /> Confirmar
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStatus(a.id, 'rejected')}
+                      onClick={() => setStatus(a, 'rejected')}
                       className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
                     >
                       <X size={14} /> Rechazar
@@ -262,7 +299,7 @@ export function AppointmentsPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() => setStatus(a.id, 'completed')}
+                      onClick={() => setStatus(a, 'completed')}
                       className="rounded-lg bg-lavender-100 px-3 py-1.5 text-xs font-semibold text-lavender-700"
                     >
                       Marcar completada
@@ -276,10 +313,11 @@ export function AppointmentsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStatus(a.id, 'cancelled')}
+                      onClick={() => askAboutCancel(a)}
                       className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
                     >
-                      <X size={14} /> Cancelar
+                      <X size={14} />{' '}
+                      {cancelAskId === a.id ? 'Cerrar' : 'Cancelar'}
                     </button>
                   </>
                 )}
@@ -314,7 +352,7 @@ export function AppointmentsPage() {
                 {a.status === 'completed' && (
                   <button
                     type="button"
-                    onClick={() => setStatus(a.id, 'confirmed')}
+                    onClick={() => setStatus(a, 'confirmed')}
                     className="inline-flex items-center gap-1 rounded-lg border border-sage-200 px-3 py-1.5 text-xs font-medium text-sage-700"
                   >
                     <Undo2 size={14} /> Deshacer completada
@@ -328,13 +366,45 @@ export function AppointmentsPage() {
                 )}
               </div>
 
+              {cancelAskId === a.id && (
+                <div className="mt-4 border-t border-sage-100 pt-4">
+                  <p className="text-sm text-ink">
+                    ¿Quieres reprogramar esta cita?
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    Si no, se cancela y este horario vuelve a quedar libre.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => rescheduleInstead(a)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-sage-500 px-3 py-1.5 text-xs font-semibold text-white"
+                    >
+                      <CalendarClock size={14} /> Sí, reprogramar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(a, 'cancelled', true)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+                    >
+                      <X size={14} /> No, cancelarla
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCancelAskId(null)}
+                      className="rounded-lg border border-sage-200 px-3 py-1.5 text-xs text-muted"
+                    >
+                      Volver
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {movingId === a.id && (
                 <AdminRescheduleForm
                   appointment={a}
-                  onDone={() => {
-                    setMovingId(null)
-                    reload()
-                  }}
+                  onMoved={replaceAppointment}
+                  onDone={() => setMovingId(null)}
                   onCancel={() => setMovingId(null)}
                 />
               )}

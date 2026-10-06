@@ -55,8 +55,9 @@ export function AppointmentsHelp() {
             realmente se usó y no debe ofrecerse a nadie más.
           </li>
           <li>
-            <strong>Cancelar</strong> (desde confirmada): la cita no va a
-            ocurrir. El cupo <strong>vuelve a quedar libre</strong>.
+            <strong>Cancelar</strong> (desde confirmada): en ese momento te
+            pregunta si quieres reprogramarla. Si dices que no, la cita no va a
+            ocurrir y el cupo <strong>vuelve a quedar libre</strong>.
           </li>
           <li>
             <strong>Deshacer completada</strong>: la devuelve a confirmada, por

@@ -1,4 +1,5 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { asyncCache } from '../lib/asyncCache'
 import {
   DEFAULT_AVAILABILITY,
   PRACTICE_SLOTS,
@@ -7,6 +8,8 @@ import {
 import { db, isFirebaseConfigured } from '../lib/firebase'
 import type { AvailabilityConfig } from '../types'
 import { localDb } from './localDb'
+
+const availabilityCache = asyncCache<AvailabilityConfig>(60_000)
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
 
@@ -59,6 +62,10 @@ function isSameConfig(a: AvailabilityConfig, b: AvailabilityConfig): boolean {
 }
 
 export async function getAvailability(): Promise<AvailabilityConfig> {
+  return availabilityCache.get(loadAvailability)
+}
+
+async function loadAvailability(): Promise<AvailabilityConfig> {
   if (!isFirebaseConfigured || !db) {
     const raw = localDb.getAvailability()
     const clean = normalize(raw)
@@ -90,7 +97,9 @@ export async function saveAvailability(
   const next = normalize(config)
   if (!isFirebaseConfigured || !db) {
     localDb.saveAvailability(next)
+    availabilityCache.set(next)
     return
   }
   await setDoc(doc(db, 'availability', 'default'), next)
+  availabilityCache.set(next)
 }

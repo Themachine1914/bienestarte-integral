@@ -39,10 +39,12 @@ export function AdminRescheduleForm({
   appointment,
   onDone,
   onCancel,
+  onMoved,
 }: {
   appointment: Appointment
   onDone: () => void
   onCancel: () => void
+  onMoved?: (appointment: Appointment) => void
 }) {
   const [availability, setAvailability] = useState<AvailabilityConfig | null>(
     null,
@@ -97,10 +99,16 @@ export function AdminRescheduleForm({
     }
     setSaving(true)
     try {
-      await rescheduleAppointment(appointment.reference, date, time, {
-        actor: 'admin',
-        override: offGrid,
-      })
+      const updated = await rescheduleAppointment(
+        appointment.reference,
+        date,
+        time,
+        {
+          actor: 'admin',
+          override: offGrid,
+        },
+      )
+      onMoved?.(updated)
       toast.success('Cita reprogramada. El cupo anterior quedó libre.')
       setMoved({ date, time })
     } catch (e) {

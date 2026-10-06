@@ -41,7 +41,7 @@ export function NewAppointmentForm({
   defaultSessionType = 'individual',
 }: {
   onCreated: (appointment: Appointment) => void
-  patient?: Pick<Patient, 'name' | 'phone' | 'email'>
+  patient?: Pick<Patient, 'id' | 'name' | 'phone' | 'email'>
   defaultSessionType?: SessionType
 }) {
   const { settings } = useSettings()
@@ -123,6 +123,7 @@ export function NewAppointmentForm({
         hours,
         notes,
         override: offGrid,
+        patientId: patient?.id,
       })
       toast.success('Cita creada y confirmada')
       reset()

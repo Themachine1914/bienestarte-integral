@@ -44,21 +44,36 @@ export function PatientsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const detailRef = useRef<HTMLDivElement>(null)
+  const reloadId = useRef(0)
 
   async function reload() {
+    const id = ++reloadId.current
     const [p, a] = await Promise.all([listPatients(), listAppointments()])
+    if (id !== reloadId.current) return
     setPatients(p)
     setAppointments(a)
   }
 
   useEffect(() => {
-    // Public bookings only get linked to a patient record once the admin is
-    // signed in; without this a recent patient could show an empty history.
-    reconcileData()
+    // The list paints first. Linking a public booking to its patient record
+    // continues in the background and only refreshes the page if it changed
+    // something — waiting on that scan is what made this page feel stuck.
+    let active = true
+    reload()
+      .catch(() => {
+        if (active) toast.error('No se pudieron cargar los pacientes')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    void reconcileData()
+      .then((result) => {
+        if (active && result.appointmentsChanged) return reload()
+      })
       .catch(() => undefined)
-      .then(reload)
-      .catch(() => toast.error('No se pudieron cargar los pacientes'))
-      .finally(() => setLoading(false))
+    return () => {
+      active = false
+    }
   }, [])
 
   const byPatient = useMemo(() => {
@@ -177,7 +192,23 @@ export function PatientsPage() {
               patient={selected}
               history={byPatient.get(selected.id) ?? []}
               settings={settings}
-              onChanged={reload}
+              onBooked={(created) => {
+                setAppointments((list) => {
+                  const rest = list.filter((item) => item.id !== created.id)
+                  return [created, ...rest].sort((a, b) =>
+                    `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`),
+                  )
+                })
+              }}
+              onNotesSaved={(notes) => {
+                setPatients((list) =>
+                  list.map((item) =>
+                    item.id === selected.id
+                      ? { ...item, privateNotes: notes }
+                      : item,
+                  ),
+                )
+              }}
             />
           ) : (
             patients.length > 0 && (
@@ -196,12 +227,14 @@ function PatientRecord({
   patient,
   history,
   settings,
-  onChanged,
+  onBooked,
+  onNotesSaved,
 }: {
   patient: Patient
   history: Appointment[]
   settings: AppSettings
-  onChanged: () => Promise<void>
+  onBooked: (appointment: Appointment) => void
+  onNotesSaved: (notes: string) => void
 }) {
   const [notes, setNotes] = useState(patient.privateNotes)
   const [booking, setBooking] = useState(false)
@@ -230,7 +263,7 @@ function PatientRecord({
     try {
       await updatePatientNotes(patient.id, notes)
       toast.success('Notas guardadas')
-      await onChanged()
+      onNotesSaved(notes)
     } catch {
       toast.error('No se pudieron guardar las notas')
     }
@@ -297,10 +330,10 @@ function PatientRecord({
         <NewAppointmentForm
           patient={patient}
           defaultSessionType={lastType}
-          onCreated={async (created) => {
+          onCreated={(created) => {
             setBooking(false)
             setJustBooked(created)
-            await onChanged()
+            onBooked(created)
           }}
         />
       )}

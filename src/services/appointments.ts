@@ -9,8 +9,11 @@ import {
   updateDoc,
   where,
   deleteField,
+  type WriteBatch,
 } from 'firebase/firestore'
+import { asyncCache } from '../lib/asyncCache'
 import { isBookableDateKey } from '../lib/dates'
+import { commitInBatches } from '../lib/firestoreBatch'
 import { db, isFirebaseConfigured } from '../lib/firebase'
 import { generateReference, normalizeReference } from '../lib/reference'
 import { canPatientReschedule, rescheduleBlockMessage } from '../lib/policy'
@@ -32,7 +35,7 @@ import type {
 import { getAvailability } from './availability'
 import { localDb } from './localDb'
 import { createNotification } from './notifications'
-import { findOrCreatePatient } from './patients'
+import { findOrCreatePatient, resolvePatientIds } from './patients'
 import { getSettings } from './settings'
 import { listSlotIds, releaseSlot, slotId } from './slots'
 
@@ -45,8 +48,14 @@ function byDateDesc(a: Appointment, b: Appointment): number {
   return `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`)
 }
 
+const appointmentsCache = asyncCache<Appointment[]>(10_000)
+
 /** Admin-only: the public site can no longer list this collection. */
 export async function listAppointments(): Promise<Appointment[]> {
+  return appointmentsCache.get(loadAppointments)
+}
+
+async function loadAppointments(): Promise<Appointment[]> {
   if (!isFirebaseConfigured || !db) {
     return localDb.getAppointments().sort(byDateDesc)
   }
@@ -54,6 +63,16 @@ export async function listAppointments(): Promise<Appointment[]> {
   return snap.docs
     .map((d) => ({ ...(d.data() as Appointment), id: d.id }))
     .sort(byDateDesc)
+}
+
+/** Keeps a list the panel already loaded in step with a single write. */
+function rememberAppointment(appointment: Appointment) {
+  const current = appointmentsCache.peek()
+  if (!current) return
+  const next = current.some((a) => a.id === appointment.id)
+    ? current.map((a) => (a.id === appointment.id ? appointment : a))
+    : [...current, appointment]
+  appointmentsCache.set(next.sort(byDateDesc))
 }
 
 /**
@@ -133,26 +152,29 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
  * patient on a Friday, an early hour, a day she had blocked for herself. The
  * slot lock still applies, so the one thing she cannot do is double-book.
  */
-async function assertBookable(
+async function assertTimesBookable(
   date: string,
-  time: string,
+  times: string[],
   { override = false }: { override?: boolean } = {},
 ): Promise<void> {
-  if (!DATE_KEY.test(date) || !isValidTimeSlot(time)) {
-    throw new Error('Fecha u hora inválida.')
+  for (const time of times) {
+    if (!DATE_KEY.test(date) || !isValidTimeSlot(time)) {
+      throw new Error('Fecha u hora inválida.')
+    }
   }
   if (override) return
 
   const availability = await getAvailability()
-
-  if (!availability.slots.includes(time)) {
-    throw new Error('Ese horario no está en la agenda.')
-  }
   if (!isBookableDateKey(date, availability)) {
     throw new Error('Esa fecha no está disponible para agendar.')
   }
-  if (isSlotInPast(date, time)) {
-    throw new Error('Ese horario ya pasó. Elige otro.')
+  for (const time of times) {
+    if (!availability.slots.includes(time)) {
+      throw new Error('Ese horario no está en la agenda.')
+    }
+    if (isSlotInPast(date, time)) {
+      throw new Error('Ese horario ya pasó. Elige otro.')
+    }
   }
 }
 
@@ -171,9 +193,7 @@ export async function createAppointment(input: {
   const hours = normalizeHours(input.hours)
   const times = expandBlock(input.time, hours)
 
-  for (const time of times) {
-    await assertBookable(input.date, time, options)
-  }
+  await assertTimesBookable(input.date, times, options)
 
   const settings = await getSettings()
   const session = settings.sessionTypes.find((s) => s.id === input.sessionType)
@@ -222,11 +242,12 @@ export async function createAppointment(input: {
   }
 
   const clock = times.length > 1 ? `${times[0]}–${times[times.length - 1]}` : times[0]
-  await createNotification({
+  void createNotification({
     type: 'appointment_created',
     appointmentId: appointment.id,
     message: `Nueva cita pendiente: ${appointment.patientName} — ${appointment.date} ${clock}`,
   }).catch(() => undefined)
+  rememberAppointment(appointment)
 
   if (!options.skipPush) {
     void notifyPush({ kind: 'appointment', appointmentId: appointment.id })
@@ -277,9 +298,7 @@ export async function rescheduleAppointment(
   const newTimes = expandBlock(newTime, hours)
   const override = options.actor === 'admin' && options.override === true
 
-  for (const time of newTimes) {
-    await assertBookable(newDate, time, { override })
-  }
+  await assertTimesBookable(newDate, newTimes, { override })
 
   const oldIds = oldTimes.map((time) => slotId(current.date, time))
   const newIds = newTimes.map((time) => slotId(newDate, time))
@@ -367,11 +386,12 @@ export async function rescheduleAppointment(
 
   const from = oldTimes.length > 1 ? `${oldTimes[0]}–${oldTimes[oldTimes.length - 1]}` : current.time
   const to = newTimes.length > 1 ? `${newTimes[0]}–${newTimes[newTimes.length - 1]}` : newTime
-  await createNotification({
+  void createNotification({
     type: 'appointment_rescheduled',
     appointmentId: current.id,
     message: `Cita reprogramada por ${options.actor === 'admin' ? 'ti' : 'el paciente'}: ${updated.patientName} — de ${current.date} ${from} a ${newDate} ${to}`,
-  })
+  }).catch(() => undefined)
+  rememberAppointment(updated)
 
   return updated
 }
@@ -441,23 +461,29 @@ export async function requestInvoice(
   return updated
 }
 
-export async function markReminderSent(id: string): Promise<Appointment> {
-  const current = await getAppointmentByReference(id)
-  if (!current) throw new Error('Cita no encontrada')
+export async function markReminderSent(
+  id: string,
+  current?: Appointment,
+): Promise<Appointment> {
+  const base =
+    current?.id === id ? current : await getAppointmentByReference(id)
+  if (!base) throw new Error('Cita no encontrada')
 
   const now = new Date().toISOString()
-  const updated: Appointment = { ...current, reminderSentAt: now, updatedAt: now }
+  const updated: Appointment = { ...base, reminderSentAt: now, updatedAt: now }
 
   if (!isFirebaseConfigured || !db) {
     localDb.saveAppointments(
-      localDb.getAppointments().map((a) => (a.id === current.id ? updated : a)),
+      localDb.getAppointments().map((a) => (a.id === base.id ? updated : a)),
     )
+    rememberAppointment(updated)
     return updated
   }
-  await updateDoc(doc(db, 'appointments', current.id), {
+  await updateDoc(doc(db, 'appointments', base.id), {
     reminderSentAt: now,
     updatedAt: now,
   })
+  rememberAppointment(updated)
   return updated
 }
 
@@ -472,37 +498,48 @@ export async function createManualAppointment(input: {
   hours?: SessionHours
   notes: string
   override?: boolean
+  /** Set when the cita is booked from a patient record we already have. */
+  patientId?: string
 }): Promise<Appointment> {
-  const { override = false, ...rest } = input
+  const { override = false, patientId, ...rest } = input
   const appointment = await createAppointment(
     { ...rest, paymentProofUrl: '', paymentProofName: '' },
     { override, skipPush: true },
   )
   // The admin is signed in here, so the patient record can be linked at once.
-  await linkPatient(appointment)
-  return updateAppointmentStatus(appointment.id, 'confirmed')
+  // From an open expediente we already know which record it is.
+  const linkedId = patientId ?? (await linkPatient(appointment))
+  if (patientId) await attachPatientId(appointment.id, patientId)
+  return updateAppointmentStatus(appointment.id, 'confirmed', {
+    ...appointment,
+    patientId: linkedId,
+  })
+}
+
+async function attachPatientId(
+  appointmentId: string,
+  patientId: string,
+): Promise<void> {
+  if (!isFirebaseConfigured || !db) {
+    localDb.saveAppointments(
+      localDb
+        .getAppointments()
+        .map((a) => (a.id === appointmentId ? { ...a, patientId } : a)),
+    )
+    return
+  }
+  await updateDoc(doc(db, 'appointments', appointmentId), { patientId })
 }
 
 /** Attaches an appointment to a patient record, creating it if needed. */
-async function linkPatient(appointment: Appointment): Promise<void> {
+async function linkPatient(appointment: Appointment): Promise<string> {
   const patient = await findOrCreatePatient({
     name: appointment.patientName,
     phone: appointment.patientPhone,
     email: appointment.patientEmail,
   })
-  if (!isFirebaseConfigured || !db) {
-    localDb.saveAppointments(
-      localDb
-        .getAppointments()
-        .map((a) =>
-          a.id === appointment.id ? { ...a, patientId: patient.id } : a,
-        ),
-    )
-    return
-  }
-  await updateDoc(doc(db, 'appointments', appointment.id), {
-    patientId: patient.id,
-  })
+  await attachPatientId(appointment.id, patient.id)
+  return patient.id
 }
 
 const NOTIFICATION_BY_STATUS: Partial<
@@ -516,16 +553,20 @@ const NOTIFICATION_BY_STATUS: Partial<
 export async function updateAppointmentStatus(
   id: string,
   status: AppointmentStatus,
+  current?: Appointment,
 ): Promise<Appointment> {
   const now = new Date().toISOString()
   let updated: Appointment
 
   if (!isFirebaseConfigured || !db) {
     const list = localDb.getAppointments()
-    const current = list.find((a) => a.id === id)
-    if (!current) throw new Error('Cita no encontrada')
-    updated = { ...current, status, updatedAt: now }
+    const base = list.find((a) => a.id === id) ?? (current?.id === id ? current : undefined)
+    if (!base) throw new Error('Cita no encontrada')
+    updated = { ...base, status, updatedAt: now }
     localDb.saveAppointments(list.map((a) => (a.id === id ? updated : a)))
+  } else if (current?.id === id) {
+    await updateDoc(doc(db, 'appointments', id), { status, updatedAt: now })
+    updated = { ...current, status, updatedAt: now }
   } else {
     const ref = doc(db, 'appointments', id)
     await updateDoc(ref, { status, updatedAt: now })
@@ -540,47 +581,89 @@ export async function updateAppointmentStatus(
     await releaseSlots(updated.date, appointmentTimes(updated))
   }
 
+  rememberAppointment(updated)
   const notification = NOTIFICATION_BY_STATUS[status]
   if (notification) {
-    await createNotification({
+    void createNotification({
       type: notification.type,
       appointmentId: id,
       message: `Cita ${notification.label}: ${updated.patientName} — ${updated.date} ${updated.time}`,
-    })
+    }).catch(() => undefined)
   }
   return updated
 }
+
+export type ReconcileResult = {
+  repaired: number
+  /** Patient links or reference codes changed, so the open list is stale. */
+  appointmentsChanged: boolean
+}
+
+let reconcileInflight: Promise<ReconcileResult> | null = null
 
 /**
  * Repairs data the public booking flow deliberately cannot write: slot locks
  * for bookings made before they were tracked separately, missing reference
  * codes, and the patient record each appointment belongs to. Runs when the
  * admin opens the panel, which is the first moment we have permission.
+ *
+ * Callers should paint the list first and await this in the background.
+ * Writes go out in batches, and a second call while one is running shares it,
+ * so opening Citas and then Pacientes does not scan the agenda twice.
  */
-export async function reconcileData(): Promise<number> {
-  const appointments = await listAppointments()
-  const active = appointments.filter((a) => ACTIVE_STATUSES.includes(a.status))
-  const existing = new Set(await listSlotIds())
-  let repaired = 0
+export function reconcileData(known?: Appointment[]): Promise<ReconcileResult> {
+  if (reconcileInflight) return reconcileInflight
+  reconcileInflight = runReconcile(known).finally(() => {
+    reconcileInflight = null
+  })
+  return reconcileInflight
+}
 
+async function runReconcile(known?: Appointment[]): Promise<ReconcileResult> {
+  const appointments = known ?? (await listAppointments())
+  const active = appointments.filter((a) => ACTIVE_STATUSES.includes(a.status))
+  const unlinked = appointments.filter((a) => !a.patientId)
+  const [existingIds, patientIds] = await Promise.all([
+    listSlotIds(),
+    unlinked.length > 0
+      ? resolvePatientIds(
+          unlinked.map((a) => ({
+            key: a.id,
+            name: a.patientName,
+            phone: a.patientPhone,
+            email: a.patientEmail,
+          })),
+        )
+      : Promise.resolve(new Map<string, string>()),
+  ])
+
+  const existing = new Set(existingIds)
   const wanted = new Set(
     active.flatMap((a) =>
       appointmentTimes(a).map((time) => slotId(a.date, time)),
     ),
   )
 
+  let repaired = 0
+  const slotOps: Array<(batch: WriteBatch) => void> = []
+  const missingLocks: SlotLock[] = []
+
   for (const appointment of active) {
     for (const time of appointmentTimes(appointment)) {
       const id = slotId(appointment.date, time)
       if (existing.has(id)) continue
       existing.add(id)
-
-      await writeSlotLock({
+      const lock: SlotLock = {
         id,
         date: appointment.date,
         time,
         createdAt: appointment.createdAt,
-      })
+      }
+      missingLocks.push(lock)
+      if (isFirebaseConfigured && db) {
+        const database = db
+        slotOps.push((batch) => batch.set(doc(database, 'slots', id), lock))
+      }
       repaired += 1
     }
   }
@@ -590,35 +673,63 @@ export async function reconcileData(): Promise<number> {
   // so the hour it vacated stays blocked until this runs. Same cleanup covers
   // a reschedule that died between claiming the new slot and repointing the
   // appointment.
+  const orphanIds: string[] = []
   for (const id of existing) {
     if (wanted.has(id)) continue
     const [date, time] = id.split('_')
     if (!date || !time) continue
-    await releaseSlot(date, time)
+    orphanIds.push(id)
+    if (isFirebaseConfigured && db) {
+      const database = db
+      slotOps.push((batch) => batch.delete(doc(database, 'slots', id)))
+    }
     repaired += 1
   }
 
+  const appointmentPatches = new Map<string, { reference?: string; patientId?: string }>()
   for (const appointment of appointments) {
-    if (!appointment.reference) {
-      const reference = generateReference()
-      if (!isFirebaseConfigured || !db) {
-        localDb.saveAppointments(
-          localDb
-            .getAppointments()
-            .map((a) => (a.id === appointment.id ? { ...a, reference } : a)),
-        )
-      } else {
-        await updateDoc(doc(db, 'appointments', appointment.id), { reference })
-      }
-      repaired += 1
-    }
-
-    if (!appointment.patientId) {
-      await linkPatient(appointment)
-      repaired += 1
-    }
+    const patch: { reference?: string; patientId?: string } = {}
+    if (!appointment.reference) patch.reference = generateReference()
+    const patientId = patientIds.get(appointment.id)
+    if (patientId) patch.patientId = patientId
+    if (!patch.reference && !patch.patientId) continue
+    appointmentPatches.set(appointment.id, patch)
+    repaired += (patch.reference ? 1 : 0) + (patch.patientId ? 1 : 0)
   }
-  return repaired
+
+  const appointmentsChanged = appointmentPatches.size > 0
+
+  if (!isFirebaseConfigured || !db) {
+    for (const lock of missingLocks) await writeSlotLock(lock)
+    for (const id of orphanIds) {
+      const [date, time] = id.split('_')
+      await releaseSlot(date, time)
+    }
+    if (appointmentsChanged) {
+      localDb.saveAppointments(
+        localDb.getAppointments().map((a) => {
+          const patch = appointmentPatches.get(a.id)
+          return patch ? { ...a, ...patch } : a
+        }),
+      )
+    }
+  } else {
+    const database = db
+    const appointmentOps: Array<(batch: WriteBatch) => void> = [
+      ...appointmentPatches.entries(),
+    ].map(
+      ([id, patch]) =>
+        (batch) =>
+          batch.update(doc(database, 'appointments', id), patch),
+    )
+    await Promise.all([
+      commitInBatches(database, slotOps),
+      commitInBatches(database, appointmentOps),
+    ])
+  }
+
+  if (appointmentsChanged) appointmentsCache.clear()
+  return { repaired, appointmentsChanged }
 }
 
 export async function getAppointmentsForPatient(
