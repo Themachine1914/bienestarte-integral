@@ -12,10 +12,13 @@ import { localDb } from './localDb'
 const availabilityCache = asyncCache<AvailabilityConfig>(60_000)
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
+const SLOT_KEY = /^(\d{4}-\d{2}-\d{2})_(\d{2}:\d{2})$/
 
 /**
  * Keeps stored config within what the practice actually supports: only
- * Monday–Wednesday, only real "HH:mm" times, only well-formed blocked dates.
+ * Monday–Wednesday, only real "HH:mm" times, only well-formed blocked dates,
+ * and only blocked hours that are practice hours on a day not already blocked
+ * whole.
  *
  * An empty `activeDays` is respected rather than reset — that is how the
  * agenda gets closed for a holiday week.
@@ -29,6 +32,17 @@ function normalize(config: Partial<AvailabilityConfig>): AvailabilityConfig {
     .filter((d) => DATE_KEY.test(d))
     .sort()
 
+  const blockedSlots = [...new Set(config.blockedSlots ?? [])]
+    .filter((key) => {
+      const match = SLOT_KEY.exec(key)
+      return (
+        !!match &&
+        PRACTICE_SLOTS.includes(match[2]) &&
+        !blockedDates.includes(match[1])
+      )
+    })
+    .sort()
+
   const duration = Number(config.sessionDurationMinutes)
 
   return {
@@ -39,6 +53,7 @@ function normalize(config: Partial<AvailabilityConfig>): AvailabilityConfig {
         ? duration
         : DEFAULT_AVAILABILITY.sessionDurationMinutes,
     blockedDates,
+    blockedSlots,
   }
 }
 
@@ -57,6 +72,7 @@ function isSameConfig(a: AvailabilityConfig, b: AvailabilityConfig): boolean {
       c.slots ?? null,
       c.sessionDurationMinutes ?? null,
       c.blockedDates ?? null,
+      c.blockedSlots ?? null,
     ])
   return fingerprint(a) === fingerprint(b)
 }

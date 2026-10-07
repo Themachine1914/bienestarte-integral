@@ -87,6 +87,7 @@ export const DEFAULT_AVAILABILITY: AvailabilityConfig = {
   slots: [...PRACTICE_SLOTS],
   sessionDurationMinutes: 50,
   blockedDates: [],
+  blockedSlots: [],
 }
 
 /** Hard ceiling on daily slots, matching the "6 cupos diarios" promise. */

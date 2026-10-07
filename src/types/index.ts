@@ -55,6 +55,8 @@ export interface AvailabilityConfig {
   sessionDurationMinutes: number
   /** Specific yyyy-MM-dd days closed for holidays or vacation. */
   blockedDates: string[]
+  /** Single hours closed on a given day, as "yyyy-MM-dd_HH:mm". */
+  blockedSlots: string[]
 }
 
 export interface Patient {

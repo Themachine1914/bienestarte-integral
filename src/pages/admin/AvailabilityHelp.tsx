@@ -35,11 +35,22 @@ export function AvailabilityHelp() {
       </div>
 
       <div>
-        <p className="font-medium text-ink">Fechas bloqueadas</p>
+        <p className="font-medium text-ink">Días y horas bloqueados</p>
         <p className="mt-1">
-          Para cerrar un día puntual — un feriado, un viaje, una cita médica —
-          agrégalo aquí. Ese día desaparece del calendario del paciente aunque
-          caiga en un día activo.
+          Para cerrar un día puntual — un feriado, un viaje — elige la fecha y
+          pulsa <strong>Bloquear día completo</strong>. Ese día desaparece del
+          calendario del paciente aunque caiga en un día activo.
+        </p>
+        <p className="mt-1">
+          Si solo necesitas parte del día — una cita médica a las 10, una
+          tarde libre — elige la fecha, toca las horas que no vas a atender y
+          pulsa <strong>Bloquear horas</strong>. El resto de ese día sigue
+          disponible para reservar. Si bloqueas todas las horas de un día, el
+          día desaparece del calendario.
+        </p>
+        <p className="mt-1">
+          Para volver a abrir una hora o un día, pulsa la <strong>X</strong> a
+          su lado y luego <strong>Guardar</strong>.
         </p>
       </div>
 
@@ -47,7 +58,7 @@ export function AvailabilityHelp() {
         <p className="font-medium text-ink">Sobre las citas ya agendadas</p>
         <p className="mt-1">
           Cambiar esta configuración <strong>no cancela ni mueve</strong> las
-          citas que ya existen. Si quitas un horario o bloqueas una fecha donde
+          citas que ya existen. Si bloqueas una hora o una fecha donde
           ya hay alguien agendado, esa cita sigue en pie y la verás en{' '}
           <strong>Citas</strong> como siempre; lo único que cambia es que nadie
           nuevo podrá reservar ahí.
@@ -65,7 +76,7 @@ export function AvailabilityHelp() {
           igual donde quieras: en <strong>Citas</strong> → <strong>Nueva
           cita</strong>, marcando <strong>Fuera del horario habitual</strong>,
           escribes cualquier día y cualquier hora — un viernes, las 7 de la
-          mañana, o una fecha que bloqueaste aquí.
+          mañana, o una fecha u hora que bloqueaste aquí.
         </p>
         <p className="mt-1">
           Así que no vengas a esta página solo para meter una cita suelta. Esto

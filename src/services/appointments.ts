@@ -12,7 +12,7 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import { asyncCache } from '../lib/asyncCache'
-import { isBookableDateKey } from '../lib/dates'
+import { isBlockedSlot, isBookableDateKey } from '../lib/dates'
 import { commitInBatches } from '../lib/firestoreBatch'
 import { db, isFirebaseConfigured } from '../lib/firebase'
 import { generateReference, normalizeReference } from '../lib/reference'
@@ -171,6 +171,9 @@ async function assertTimesBookable(
   for (const time of times) {
     if (!availability.slots.includes(time)) {
       throw new Error('Ese horario no está en la agenda.')
+    }
+    if (isBlockedSlot(date, time, availability)) {
+      throw new Error('Ese horario no está disponible. Elige otro.')
     }
     if (isSlotInPast(date, time)) {
       throw new Error('Ese horario ya pasó. Elige otro.')

@@ -26,6 +26,18 @@ export function isBlockedDate(
   return (availability.blockedDates ?? []).includes(toDateKey(date))
 }
 
+export function blockedSlotKey(dateKey: string, slot: string): string {
+  return `${dateKey}_${slot}`
+}
+
+export function isBlockedSlot(
+  dateKey: string,
+  slot: string,
+  availability: AvailabilityConfig,
+): boolean {
+  return (availability.blockedSlots ?? []).includes(blockedSlotKey(dateKey, slot))
+}
+
 export function formatDisplayDate(isoDate: string): string {
   return format(parseISO(isoDate), "EEEE d 'de' MMMM yyyy", { locale: es })
 }
@@ -39,8 +51,9 @@ export function formatCurrencyDop(amount: number): string {
 }
 
 /**
- * Slots still open on a given day: configured, not already booked, and — for
- * today — not already past. Booking a 09:00 session at 4pm was possible before.
+ * Slots still open on a given day: configured, not blocked for that day, not
+ * already booked, and — for today — not already past. Booking a 09:00 session
+ * at 4pm was possible before.
  */
 export function getOpenSlots(
   dateKey: string,
@@ -49,13 +62,17 @@ export function getOpenSlots(
   now: Date = new Date(),
 ): string[] {
   return availability.slots.filter(
-    (slot) => !bookedSlots.includes(slot) && !isSlotInPast(dateKey, slot, now),
+    (slot) =>
+      !bookedSlots.includes(slot) &&
+      !isBlockedSlot(dateKey, slot, availability) &&
+      !isSlotInPast(dateKey, slot, now),
   )
 }
 
 /**
- * Dates a patient may pick. Today is included only while it still has a slot
- * left, so the calendar never offers a day that can no longer be booked.
+ * Dates a patient may pick. A day is included only while it still has a slot
+ * left — not blocked and, for today, not past — so the calendar never offers a
+ * day that can no longer be booked.
  */
 export function getBookableDates(
   availability: AvailabilityConfig,
@@ -72,12 +89,12 @@ export function getBookableDates(
     if (isBlockedDate(day, availability)) continue
 
     const key = toDateKey(day)
-    if (key === todayKey) {
-      const remaining = availability.slots.some(
-        (slot) => !isSlotInPast(key, slot, now),
-      )
-      if (!remaining) continue
-    }
+    const remaining = availability.slots.some(
+      (slot) =>
+        !isBlockedSlot(key, slot, availability) &&
+        (key !== todayKey || !isSlotInPast(key, slot, now)),
+    )
+    if (!remaining) continue
     dates.push(day)
   }
   return dates
